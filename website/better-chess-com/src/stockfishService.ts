@@ -69,7 +69,6 @@ export class StockfishService {
   }
 
   computeFen(fen: string): void {
-    console.log(fen);
     this.computationRunning++;
     this.sf?.postMessage("position fen " + fen);
     this.sf?.postMessage(`go depth ${this.depth}`);
