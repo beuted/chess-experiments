@@ -49,13 +49,15 @@ function App() {
   };
 
   const [data, setData] = useState(defaultData);
-  const [openingResultPies, setOpeningResultPies] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [openingResultPiesWhite, setOpeningResultPiesWhite] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [openingResultPiesBlack, setOpeningResultPiesBlack] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
   const [filteredArchives, setFilteredArchives] = useState<HydratedChessComArchive[]>([]);
   const [resultPerOpening, setResultPerOpening] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
-  const [resultPerOpeningSimplified, setResultPerOpeningSimplified] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
+  const [resultPerOpeningSimplifiedWhite, setResultPerOpeningSimplifiedWhite] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
+  const [resultPerOpeningSimplifiedBlack, setResultPerOpeningSimplifiedBlack] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
 
   useEffect(() => {
     (async () => {
@@ -153,58 +155,81 @@ function App() {
 
 
       const openingSimplified = archive.opening.split(":")[0];
-      if (!resultPerOpeningSimplified[openingSimplified])
-        resultPerOpeningSimplified[openingSimplified] = { win: 0, lose: 0, draw: 0 };
 
-      if (result == 1) resultPerOpeningSimplified[openingSimplified].win++;
-      if (result == -1) resultPerOpeningSimplified[openingSimplified].lose++;
-      if (result == 0) resultPerOpeningSimplified[openingSimplified].draw++;
-      setResultPerOpeningSimplified(Object.assign({}, resultPerOpening));
+      if (archive.playingWhite) {
+        if (!resultPerOpeningSimplifiedWhite[openingSimplified])
+          resultPerOpeningSimplifiedWhite[openingSimplified] = { win: 0, lose: 0, draw: 0 };
+
+        if (result == 1) resultPerOpeningSimplifiedWhite[openingSimplified].win++;
+        if (result == -1) resultPerOpeningSimplifiedWhite[openingSimplified].lose++;
+        if (result == 0) resultPerOpeningSimplifiedWhite[openingSimplified].draw++;
+        setResultPerOpeningSimplifiedWhite(Object.assign({}, resultPerOpeningSimplifiedWhite));
+      } else {
+        if (!resultPerOpeningSimplifiedBlack[openingSimplified])
+          resultPerOpeningSimplifiedBlack[openingSimplified] = { win: 0, lose: 0, draw: 0 };
+
+        if (result == 1) resultPerOpeningSimplifiedBlack[openingSimplified].win++;
+        if (result == -1) resultPerOpeningSimplifiedBlack[openingSimplified].lose++;
+        if (result == 0) resultPerOpeningSimplifiedBlack[openingSimplified].draw++;
+        setResultPerOpeningSimplifiedBlack(Object.assign({}, resultPerOpeningSimplifiedBlack));
+      }
     }
 
 
     // Setup pie chart
-    var charts = [];
-    for (var kvp of Object.entries(resultPerOpeningSimplified).sort(x => x[1].win + x[1].lose + x[1].draw).slice(0, 5)) {
-      var openingResultData =
-      {
-        labels: ['Win', 'Draw', 'Lose'],
-        datasets: [
-          {
-            label: kvp[0],
-            data: [kvp[1].win, kvp[1].draw, kvp[1].lose],
-            backgroundColor: [
-              '#7DCBBC',
-              '#E4E4E4',
-              '#D36446',
-            ],
-            borderWidth: 0,
+    var chartsWhite = [];
+    for (var kvp of Object.entries(resultPerOpeningSimplifiedWhite).sort((a, b) => sortByGames(a[1], b[1])).slice(0, 5)) {
+      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
+      chartsWhite.push(openingResultData)
+    }
+    setOpeningResultPiesWhite(chartsWhite);
+
+    var chartsBlack = [];
+    for (var kvp of Object.entries(resultPerOpeningSimplifiedBlack).sort((a, b) => sortByGames(a[1], b[1])).slice(0, 5)) {
+      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
+      chartsBlack.push(openingResultData)
+    }
+    setOpeningResultPiesBlack(chartsBlack);
+
+  }, [filteredArchives]);
+
+  function sortByGames(a: {win: number, draw: number, lose: number}, b: {win: number, draw: number, lose: number}) {
+    return b.win + b.lose + b.draw - a.win - a.lose - a.draw
+  } 
+
+  function getPieData(label: string, win: number, draw: number, lose: number) {
+    return {
+      labels: ['Win', 'Draw', 'Lose'],
+      datasets: [
+        {
+          label: label,
+          data: [win, draw, lose],
+          backgroundColor: [
+            '#7DCBBC',
+            '#E4E4E4',
+            '#D36446',
+          ],
+          borderWidth: 0,
+        },
+      ],
+      options: {
+        plugins: {
+          legend: {
+            display: false,
           },
-        ],
-        options: {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            title: {
-              display: true,
-              text: kvp[0]
-            }
-          },
-          elements: {
-            arc: {
-              borderWidth: 0
-            }
+          title: {
+            display: true,
+            text: label
+          }
+        },
+        elements: {
+          arc: {
+            borderWidth: 0
           }
         }
       }
-      charts.push(openingResultData)
     }
-
-
-    setOpeningResultPies(charts);
-
-  }, [filteredArchives]);
+  }
 
 
   function makeAMove(move: ShortMove) {
@@ -250,8 +275,18 @@ function App() {
           )}
         </ul>}
 
+        <h2>As white</h2>
         <div className="opening-container">
-          {openingResultPies.map(x =>
+          {openingResultPiesWhite.map(x =>
+            <div key={x.datasets[0].label} style={{ width: "220px", }}>
+              <Pie data={x} options={x.options} />
+            </div>
+          )}
+        </div>
+
+        <h2>As black</h2>
+        <div className="opening-container">
+          {openingResultPiesBlack.map(x =>
             <div key={x.datasets[0].label} style={{ width: "220px", }}>
               <Pie data={x} options={x.options} />
             </div>
