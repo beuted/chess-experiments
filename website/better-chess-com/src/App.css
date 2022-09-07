@@ -13,6 +13,15 @@
   }
 }
 
+.clickable {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.selected {
+  opacity: 1 !important;
+}
+
 .app-container {
   background-color: #f9f8f9;
   display: flex;
@@ -23,9 +32,18 @@
   color: rgb(51, 51, 51);
 }
 
+.openings {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
 .opening-container {
   display: flex;
   flex-direction: row;
+  max-width: 900px;
+  overflow-x: auto;
 }
 
 .App-link {

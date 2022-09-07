@@ -19,6 +19,26 @@ import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
 import { ChessComArchive, getResult, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
+import {
+  DataGrid,
+  GridSelectionModel,
+  GridFilterModel,
+  GridFilterItem,
+  GridRowId,
+  GridFilterOperator,
+  GridStateColDef,
+  GridCellParams,
+  getGridDefaultColumnTypes,
+  DEFAULT_GRID_COL_TYPE_KEY,
+  GridToolbar,
+  GridRowsProp,
+  GridColDef,
+  gridDateComparator,
+  GridComparatorFn,
+} from '@mui/x-data-grid';
+import { url } from 'inspector';
+import { renderLink } from './renderLink';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 
 ChartJS.register(CategoryScale,
   LinearScale,
@@ -29,8 +49,6 @@ ChartJS.register(CategoryScale,
   Tooltip,
   Legend,
 );
-
-const userName = "dekajoo";
 
 function App() {
   const sf = new StockfishService(9);
@@ -48,29 +66,34 @@ function App() {
     ],
   };
 
+  var startDateDefault = new Date();
+  startDateDefault.setMonth(startDateDefault.getMonth() - 3);
+  const [gameType, setGameType] = useState<string>("rapid");
+  const [userName, setUsername] = useState<string>("nicolas-t");
+  const [startDate, setStartDate] = useState<Date>(startDateDefault);
+  const [endDate, setEndDate] = useState<Date>(new Date());
+
   const [data, setData] = useState(defaultData);
   const [openingResultPiesWhite, setOpeningResultPiesWhite] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [openingResultPiesWhiteAll, setOpeningResultPiesWhiteAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
   const [openingResultPiesBlack, setOpeningResultPiesBlack] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [openingResultPiesBlackAll, setOpeningResultPiesBlackAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
+  const [openingResultPiesAll, setOpeningResultPiesAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>();
+  const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
+  const [openingOpenBlack, setOpeningOpenBlack] = useState<boolean>(false);
+  const [openingDetailsVariant, setOpeningDetailsVariant] = useState<string | null>(null);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
   const [filteredArchives, setFilteredArchives] = useState<HydratedChessComArchive[]>([]);
+  const [gridRow, setGridRow] = useState<GridRowsProp>([]);
   const [resultPerOpening, setResultPerOpening] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
   const [resultPerOpeningSimplifiedWhite, setResultPerOpeningSimplifiedWhite] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
   const [resultPerOpeningSimplifiedBlack, setResultPerOpeningSimplifiedBlack] = useState<{ [opening: string]: { win: number, lose: number, draw: number } }>({});
 
   useEffect(() => {
     (async () => {
-      // Fetch all archives (for one month for now)
-      chessAPI.getPlayerCompleteMonthlyArchives('dekajoo', 2022, 8)
-        .then(function (response: any) {
-          console.log('Player Profile', response.body);
-          setArchives(response.body.games);
-        }, function (err: any) {
-          console.error(err);
-        });
-
-      // COmpute Stuff
+      // Compute Stuff
       const chess = new Chess();
 
       sf.reset();
@@ -113,6 +136,10 @@ function App() {
 
   useEffect(() => {
     // opening stats
+    let resultPerOpening: { [opening: string]: { win: number, lose: number, draw: number } } = {}
+    let resultPerOpeningSimplifiedWhite: { [opening: string]: { win: number, lose: number, draw: number } } = {}
+    let resultPerOpeningSimplifiedBlack: { [opening: string]: { win: number, lose: number, draw: number } } = {}
+
     for (var archive of filteredArchives) {
 
       // Remove description
@@ -128,7 +155,6 @@ function App() {
         if (cleanedPgn.startsWith(opening.pgn)) {
           archive.opening = opening.name;
           archive.eco = opening.eco;
-          console.log(`${archive.url} => ${opening.name}, ${opening.eco}`);
           break;
         }
       }
@@ -143,6 +169,11 @@ function App() {
 
       archive.result = playerSide.result;
 
+      if (!archive.opening) {
+        console.log("what is this opening " + archive.url);
+        continue;
+      }
+
       // Set the results per opening
       if (!resultPerOpening[archive.opening])
         resultPerOpening[archive.opening] = { win: 0, lose: 0, draw: 0 };
@@ -151,8 +182,6 @@ function App() {
       if (result == 1) resultPerOpening[archive.opening].win++;
       if (result == -1) resultPerOpening[archive.opening].lose++;
       if (result == 0) resultPerOpening[archive.opening].draw++;
-      setResultPerOpening(Object.assign({}, resultPerOpening));
-
 
       const openingSimplified = archive.opening.split(":")[0];
 
@@ -163,7 +192,6 @@ function App() {
         if (result == 1) resultPerOpeningSimplifiedWhite[openingSimplified].win++;
         if (result == -1) resultPerOpeningSimplifiedWhite[openingSimplified].lose++;
         if (result == 0) resultPerOpeningSimplifiedWhite[openingSimplified].draw++;
-        setResultPerOpeningSimplifiedWhite(Object.assign({}, resultPerOpeningSimplifiedWhite));
       } else {
         if (!resultPerOpeningSimplifiedBlack[openingSimplified])
           resultPerOpeningSimplifiedBlack[openingSimplified] = { win: 0, lose: 0, draw: 0 };
@@ -171,31 +199,88 @@ function App() {
         if (result == 1) resultPerOpeningSimplifiedBlack[openingSimplified].win++;
         if (result == -1) resultPerOpeningSimplifiedBlack[openingSimplified].lose++;
         if (result == 0) resultPerOpeningSimplifiedBlack[openingSimplified].draw++;
-        setResultPerOpeningSimplifiedBlack(Object.assign({}, resultPerOpeningSimplifiedBlack));
       }
     }
-
+    setResultPerOpening(Object.assign({}, resultPerOpening));
+    setResultPerOpeningSimplifiedWhite(Object.assign({}, resultPerOpeningSimplifiedWhite));
+    setResultPerOpeningSimplifiedBlack(Object.assign({}, resultPerOpeningSimplifiedBlack));
 
     // Setup pie chart
-    var chartsWhite = [];
-    for (var kvp of Object.entries(resultPerOpeningSimplifiedWhite).sort((a, b) => sortByGames(a[1], b[1])).slice(0, 5)) {
+    // * White
+    const chartsWhite = [];
+    for (var kvp of Object.entries(resultPerOpeningSimplifiedWhite).sort((a, b) => sortByGames(a[1], b[1]))) {
       const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsWhite.push(openingResultData)
+      chartsWhite.push(openingResultData);
     }
+    const valuesWhite = Object.values(resultPerOpeningSimplifiedWhite).reduce((prev, curr) => ({ win: prev.win + curr.win, draw: prev.draw + curr.draw, lose: prev.lose + curr.lose }), { win: 0, draw: 0, lose: 0 });
+    setOpeningResultPiesWhiteAll(getPieData("white", valuesWhite.win, valuesWhite.draw, valuesWhite.lose));
     setOpeningResultPiesWhite(chartsWhite);
 
-    var chartsBlack = [];
-    for (var kvp of Object.entries(resultPerOpeningSimplifiedBlack).sort((a, b) => sortByGames(a[1], b[1])).slice(0, 5)) {
+    // * Black
+    const chartsBlack = [];
+    for (var kvp of Object.entries(resultPerOpeningSimplifiedBlack).sort((a, b) => sortByGames(a[1], b[1]))) {
       const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsBlack.push(openingResultData)
+      chartsBlack.push(openingResultData);
     }
+    const valuesBlack = Object.values(resultPerOpeningSimplifiedBlack).reduce((prev, curr) => ({ win: prev.win + curr.win, draw: prev.draw + curr.draw, lose: prev.lose + curr.lose }), { win: 0, draw: 0, lose: 0 });
+    setOpeningResultPiesBlackAll(getPieData("black", valuesBlack.win, valuesBlack.draw, valuesBlack.lose));
     setOpeningResultPiesBlack(chartsBlack);
+
+    // * All
+    const chartsAll = [];
+    for (var kvp of Object.entries(resultPerOpening).sort((a, b) => sortByGames(a[1], b[1]))) {
+      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
+      chartsAll.push(openingResultData);
+    }
+    setOpeningResultPiesAll(chartsAll);
+
+
+    // Set gird rows
+
+    setGridRow(filteredArchives.map((x, i) => ({
+      id: i,
+      url: x.url,
+      color: x.playingWhite ? 'white' : 'black',
+      endTime: new Date(x.end_time * 1000),
+      opening: x.opening,
+    })))
+
+    const rows: GridRowsProp = [
+      { id: 1, url: 'Hello', color: 'World' },
+      { id: 2, url: 'DataGridPro', color: 'is Awesome' },
+      { id: 3, url: 'MUI', color: 'is Amazing' },
+    ];
+
 
   }, [filteredArchives]);
 
-  function sortByGames(a: {win: number, draw: number, lose: number}, b: {win: number, draw: number, lose: number}) {
+  async function fetchGames() {
+    // Fetch all archives (for one month for now)
+    let archiveTemp: ChessComArchive[] = []
+    const startYear = startDate.getUTCFullYear();
+    const endYear = endDate.getUTCFullYear();
+    const startMonth = startDate.getUTCMonth() + 1;
+    const endMonth = endDate.getUTCMonth() + 1;
+    let y = startYear;
+    let m = startMonth;
+
+    while (y < endYear || m <= endMonth) {
+      console.log(y, m)
+      let response = await chessAPI.getPlayerCompleteMonthlyArchives(userName, y, m);
+      archiveTemp = archiveTemp.concat(response.body.games)
+
+      if (m == 12) {
+        m = 1; y++;
+      } else {
+        m++;
+      }
+    }
+    setArchives(archiveTemp);
+  }
+
+  function sortByGames(a: { win: number, draw: number, lose: number }, b: { win: number, draw: number, lose: number }) {
     return b.win + b.lose + b.draw - a.win - a.lose - a.draw
-  } 
+  }
 
   function getPieData(label: string, win: number, draw: number, lose: number) {
     return {
@@ -252,47 +337,156 @@ function App() {
     return true;
   }
 
+  const columns: GridColDef[] = [
+    { field: 'url', headerName: 'Link', width: 360, renderCell: renderLink },
+    { field: 'color', headerName: 'Color' },
+    { field: 'endTime', headerName: 'End Time', sortComparator: gridDateComparator, renderCell: params => params.value.toLocaleDateString() },
+    { field: 'opening', headerName: 'Opening', flex: 1 },
+  ];
+
   return (
     <div className="App">
-      <header className="app-container">
-        <p>
-          Game advantage evolution
-        </p>
+      <div className="app-container">
+        {false ?? <div>
+          <p>
+            Game advantage evolution
+          </p>
 
-        <div style={{ width: "800px", height: "300px" }}>
-          <Line
-            datasetIdKey='id'
-            data={data}
-            options={{ maintainAspectRatio: false }}
+          <div style={{ width: "800px", height: "300px" }}>
+            <Line
+              datasetIdKey='id'
+              data={data}
+              options={{ maintainAspectRatio: false }}
+            />
+          </div>
+
+          <Chessboard position={board.fen()} onPieceDrop={onDrop} />
+        </div>}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', m: 1 }}>
+          <TextField label="Username"
+            defaultValue={userName}
+            variant="standard"
+            size="small"
+            sx={{ width: 150, m: 1 }}
+            onChange={event => {
+              setUsername(event.target.value);
+            }} />
+          <FormControl sx={{ width: 120, m: 1 }} size="small">
+            <InputLabel id="game-type-label">Game Type</InputLabel>
+            <Select
+              labelId="game-type-label"
+              id="game-type"
+              value={gameType}
+              label="Game type"
+              defaultValue={gameType}
+              onChange={(event: SelectChangeEvent) => {
+                setGameType(event.target.value);
+              }}
+            >
+              <MenuItem value={"rapid"}>Rapid</MenuItem>
+              <MenuItem value={"blitz"}>Blitz</MenuItem>
+              <MenuItem value={"bullet"}>Bullet</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            id="startDate"
+            label="Start Date"
+            type="date"
+            defaultValue={startDate.toISOString().substring(0, 10)}
+            size="small"
+            sx={{ width: 150, m: 1 }}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            onChange={event => {
+              setStartDate(new Date(event.target.value));
+            }}
           />
+          <TextField
+            id="endDate"
+            label="End date"
+            type="date"
+            InputProps={{ inputProps: { max: new Date().toISOString().substring(0, 10) } }}
+            defaultValue={endDate.toISOString().substring(0, 10)}
+            size="small"
+            sx={{ width: 150, m: 1 }}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            onChange={event => {
+              setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
+            }}
+          />
+          <Button variant="contained" onClick={fetchGames}>Compute</Button>
+        </Box>
+
+        <div className="openings">
+          <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
+            <h2>As white</h2>
+            {openingResultPiesWhiteAll ? (<div style={{ width: "220px" }} className={"clickable " + (openingOpenWhite || !openingOpenBlack ? "selected" : "")}>
+              <Pie data={openingResultPiesWhiteAll} options={openingResultPiesWhiteAll.options} />
+            </div>) : null}
+          </div>
+
+          <div onClick={() => { setOpeningOpenWhite(false); setOpeningOpenBlack(!openingOpenBlack); setOpeningDetailsVariant(null); }}>
+            <h2>As black</h2>
+            {openingResultPiesBlackAll ? (<div style={{ width: "220px" }} className={"clickable " + (openingOpenBlack || !openingOpenWhite ? "selected" : "")}>
+              <Pie data={openingResultPiesBlackAll} options={openingResultPiesBlackAll.options} />
+            </div>) : null}
+          </div>
         </div>
 
-        <Chessboard position={board.fen()} onPieceDrop={onDrop} />
+        <div>
+          {(openingOpenWhite || openingOpenBlack) ? (<h2>Main variants</h2>) : null}
+          {openingOpenWhite ? (<div className="opening-container">
+            {openingResultPiesWhite.map(x =>
+              <div
+                key={x.datasets[0].label}
+                className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                style={{ width: "180px", }}
+                onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
+                <Pie data={x} options={x.options} />
+              </div>
+            )}
+          </div>) : null}
 
-        {false ?? <ul>
-          {filteredArchives.map(x =>
-            (<li key={x.url}><a href={x.url}>{x.url}</a></li>)
-          )}
-        </ul>}
-
-        <h2>As white</h2>
-        <div className="opening-container">
-          {openingResultPiesWhite.map(x =>
-            <div key={x.datasets[0].label} style={{ width: "220px", }}>
-              <Pie data={x} options={x.options} />
-            </div>
-          )}
+          {openingOpenBlack ? (<div className="opening-container">
+            {openingResultPiesBlack.map(x =>
+              <div
+                key={x.datasets[0].label}
+                className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                style={{ width: "180px", }}
+                onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
+                <Pie data={x} options={x.options} />
+              </div>
+            )}
+          </div>) : null}
         </div>
 
-        <h2>As black</h2>
-        <div className="opening-container">
-          {openingResultPiesBlack.map(x =>
-            <div key={x.datasets[0].label} style={{ width: "220px", }}>
-              <Pie data={x} options={x.options} />
-            </div>
-          )}
+        <div>
+          {openingDetailsVariant ? (<h2>Detailed variants</h2>) : null}
+          {openingResultPiesAll ? (<div className="opening-container">
+            {openingResultPiesAll.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).map(x =>
+              <div key={x.datasets[0].label} style={{ width: "180px", }}>
+                <Pie data={x} options={x.options} />
+              </div>
+            )}
+          </div>) : null}
         </div>
-      </header >
+
+        <h2>Games</h2>
+        <div style={{ height: "100vh", width: 900, marginTop: 30 }}>
+          <DataGrid
+            disableSelectionOnClick
+            columns={columns}
+            rows={gridRow}
+            {...data}
+            components={{ Toolbar: GridToolbar }} />
+        </div>
+
+
+      </div>
     </div >
   );
 }
