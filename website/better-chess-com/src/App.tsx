@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import logo from './logo.svg';
 import './App.css';
 import { Chess, ChessInstance, ShortMove, Square } from 'chess.js'
-import { Line, Chart, Pie } from 'react-chartjs-2';
+import { Line, Pie } from 'react-chartjs-2';
 import { Chessboard } from "react-chessboard";
 import {
   Chart as ChartJS, CategoryScale,
@@ -20,25 +19,11 @@ import ChessWebAPI from 'chess-web-api';
 import { ChessComArchive, getResult, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
 import {
-  DataGrid,
-  GridSelectionModel,
-  GridFilterModel,
-  GridFilterItem,
-  GridRowId,
-  GridFilterOperator,
-  GridStateColDef,
-  GridCellParams,
-  getGridDefaultColumnTypes,
-  DEFAULT_GRID_COL_TYPE_KEY,
-  GridToolbar,
   GridRowsProp,
-  GridColDef,
-  gridDateComparator,
-  GridComparatorFn,
 } from '@mui/x-data-grid';
-import { url } from 'inspector';
-import { renderLink } from './renderLink';
-import { Box, Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { GamesTable } from './GamesTable';
+import { Openings } from './Openings';
 
 ChartJS.register(CategoryScale,
   LinearScale,
@@ -74,21 +59,10 @@ function App() {
   const [endDate, setEndDate] = useState<Date>(new Date());
 
   const [data, setData] = useState(defaultData);
-  const [openingResultPiesWhite, setOpeningResultPiesWhite] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
-  const [openingResultPiesWhiteAll, setOpeningResultPiesWhiteAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
-  const [openingResultPiesBlack, setOpeningResultPiesBlack] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
-  const [openingResultPiesBlackAll, setOpeningResultPiesBlackAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
-  const [openingResultPiesWhiteDetailed, setOpeningResultPiesWhiteDetailed] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>();
-  const [openingResultPiesBlackDetailed, setOpeningResultPiesBlackDetailed] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>();
-  const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
-  const [openingOpenBlack, setOpeningOpenBlack] = useState<boolean>(false);
-  const [openingDetailsVariant, setOpeningDetailsVariant] = useState<string | null>(null);
-  const [showMore, setShowMore] = useState<boolean>(false);
-  const [showMoreDetailed, setShowMoreDetailed] = useState<boolean>(false);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
-  const [filteredArchives, setFilteredArchives] = useState<HydratedChessComArchive[]>([]);
+  const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>([]);
   const [gridRow, setGridRow] = useState<GridRowsProp>([]);
 
 
@@ -111,7 +85,7 @@ function App() {
       let fen: string | undefined = chess.fen();
       while (fen != undefined) {
         // GUI: tell the engine the position to search
-        sf.computeFen(fen);
+        sf.computeFen("r3k2r/pp1n1pp1/2p1pq1p/3p4/1bPP4/2NQPN2/PP3PPP/R4RK1 w kq - 2 12");
 
         var res = chess.undo();
         fen = res == null ? undefined : chess.fen();
@@ -131,19 +105,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const chess = new Chess();
     // compute what archive we filter on
-    setFilteredArchives(archives.filter(x => x.time_class == "rapid") as HydratedChessComArchive[]);
-  }, [archives]);
+    var filteredArchives = archives.filter(x => x.time_class == "rapid") as HydratedChessComArchive[];
 
-  useEffect(() => {
     // opening stats
-    let resultPerOpeningWhite: { [opening: string]: { win: number, lose: number, draw: number } } = {}
-    let resultPerOpeningBlack: { [opening: string]: { win: number, lose: number, draw: number } } = {}
-    let resultPerOpeningSimplifiedWhite: { [opening: string]: { win: number, lose: number, draw: number } } = {}
-    let resultPerOpeningSimplifiedBlack: { [opening: string]: { win: number, lose: number, draw: number } } = {}
-
     for (var archive of filteredArchives) {
-
       // Remove description
       let cleanedPgn = archive.pgn.split('\n\n')[1];
 
@@ -176,106 +143,32 @@ function App() {
         continue;
       }
 
-      // Set the results per opening dic
-      const result = getResult(archive.result);
-      const openingSimplified = archive.opening.split(":")[0];
+      // Load the score on move 15
+      var pgnArray = cleanedPgn.split('.');
+      let pgnMove15 = null;
+      if (pgnArray.length <= 16)
+        pgnMove15 = cleanedPgn;
+      else
+        pgnMove15 = pgnArray.slice(0, 16).join(".").slice(0, -3);
 
-      if (archive.playingWhite) {
-        // Full opening
-        if (!resultPerOpeningWhite[archive.opening])
-          resultPerOpeningWhite[archive.opening] = { win: 0, lose: 0, draw: 0 };
-
-        // Simplified opening
-        if (!resultPerOpeningSimplifiedWhite[openingSimplified])
-          resultPerOpeningSimplifiedWhite[openingSimplified] = { win: 0, lose: 0, draw: 0 };
-
-        if (result == 1) {
-          resultPerOpeningSimplifiedWhite[openingSimplified].win++;
-          resultPerOpeningWhite[archive.opening].win++;
-        } else if (result == -1) {
-          resultPerOpeningSimplifiedWhite[openingSimplified].lose++;
-          resultPerOpeningWhite[archive.opening].lose++;
-        } else if (result == 0) {
-          resultPerOpeningSimplifiedWhite[openingSimplified].draw++;
-          resultPerOpeningWhite[archive.opening].draw++;
-        }
-      } else {
-        // Full opening
-        if (!resultPerOpeningBlack[archive.opening])
-          resultPerOpeningBlack[archive.opening] = { win: 0, lose: 0, draw: 0 };
-
-        // Simplified opening
-        if (!resultPerOpeningSimplifiedBlack[openingSimplified])
-          resultPerOpeningSimplifiedBlack[openingSimplified] = { win: 0, lose: 0, draw: 0 };
-
-        if (result == 1) {
-          resultPerOpeningSimplifiedBlack[openingSimplified].win++;
-          resultPerOpeningBlack[archive.opening].win++;
-        } else if (result == -1) {
-          resultPerOpeningSimplifiedBlack[openingSimplified].lose++;
-          resultPerOpeningBlack[archive.opening].lose++;
-        } else if (result == 0) {
-          resultPerOpeningSimplifiedBlack[openingSimplified].draw++;
-          resultPerOpeningBlack[archive.opening].draw++;
-        }
-      }
+      chess.load_pgn(pgnMove15);
+      const fen = chess.fen();
+      sf.computeFen(fen);
     }
 
-    // Setup pie chart
-    // * White
-    const chartsWhite = [];
-    for (var kvp of Object.entries(resultPerOpeningSimplifiedWhite).sort((a, b) => sortByGames(a[1], b[1]))) {
-      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsWhite.push(openingResultData);
-    }
-    const valuesWhite = Object.values(resultPerOpeningSimplifiedWhite).reduce((prev, curr) => ({ win: prev.win + curr.win, draw: prev.draw + curr.draw, lose: prev.lose + curr.lose }), { win: 0, draw: 0, lose: 0 });
-    setOpeningResultPiesWhiteAll(getPieData("white", valuesWhite.win, valuesWhite.draw, valuesWhite.lose));
-    setOpeningResultPiesWhite(chartsWhite);
+    setHydratedArchives(filteredArchives);
+  }, [archives]);
 
-    // * Black
-    const chartsBlack = [];
-    for (var kvp of Object.entries(resultPerOpeningSimplifiedBlack).sort((a, b) => sortByGames(a[1], b[1]))) {
-      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsBlack.push(openingResultData);
-    }
-    const valuesBlack = Object.values(resultPerOpeningSimplifiedBlack).reduce((prev, curr) => ({ win: prev.win + curr.win, draw: prev.draw + curr.draw, lose: prev.lose + curr.lose }), { win: 0, draw: 0, lose: 0 });
-    setOpeningResultPiesBlackAll(getPieData("black", valuesBlack.win, valuesBlack.draw, valuesBlack.lose));
-    setOpeningResultPiesBlack(chartsBlack);
-
-    // * All White
-    const chartsDetailedWhite = [];
-    for (var kvp of Object.entries(resultPerOpeningWhite).sort((a, b) => sortByGames(a[1], b[1]))) {
-      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsDetailedWhite.push(openingResultData);
-    }
-    setOpeningResultPiesWhiteDetailed(chartsDetailedWhite);
-
-    // * All Black
-    const chartsDetailedBlack = [];
-    for (var kvp of Object.entries(resultPerOpeningBlack).sort((a, b) => sortByGames(a[1], b[1]))) {
-      const openingResultData = getPieData(kvp[0], kvp[1].win, kvp[1].draw, kvp[1].lose);
-      chartsDetailedBlack.push(openingResultData);
-    }
-    setOpeningResultPiesBlackDetailed(chartsDetailedBlack);
-
-    // Set gird rows
-
-    setGridRow(filteredArchives.map((x, i) => ({
+  useEffect(() => {
+    // Set grid rows
+    setGridRow(hydratedArchives.map((x, i) => ({
       id: i,
       url: x.url,
       color: x.playingWhite ? 'white' : 'black',
       endTime: new Date(x.end_time * 1000),
       opening: x.opening,
     })))
-
-    const rows: GridRowsProp = [
-      { id: 1, url: 'Hello', color: 'World' },
-      { id: 2, url: 'DataGridPro', color: 'is Awesome' },
-      { id: 3, url: 'MUI', color: 'is Amazing' },
-    ];
-
-
-  }, [filteredArchives]);
+  }, [hydratedArchives]);
 
   async function fetchGames() {
 
@@ -295,7 +188,6 @@ function App() {
     let m = startMonth;
 
     while (y < endYear || m <= endMonth) {
-      console.log(y, m)
       let response = await chessAPI.getPlayerCompleteMonthlyArchives(userNameFixed, y, m);
       archiveTemp = archiveTemp.concat(response.body.games)
 
@@ -307,45 +199,6 @@ function App() {
     }
     setArchives(archiveTemp);
   }
-
-  function sortByGames(a: { win: number, draw: number, lose: number }, b: { win: number, draw: number, lose: number }) {
-    return b.win + b.lose + b.draw - a.win - a.lose - a.draw
-  }
-
-  function getPieData(label: string, win: number, draw: number, lose: number) {
-    return {
-      labels: ['Win', 'Draw', 'Lose'],
-      datasets: [
-        {
-          label: label,
-          data: [win, draw, lose],
-          backgroundColor: [
-            '#7DCBBC',
-            '#E4E4E4',
-            '#D36446',
-          ],
-          borderWidth: 0,
-        },
-      ],
-      options: {
-        plugins: {
-          legend: {
-            display: false,
-          },
-          title: {
-            display: true,
-            text: label
-          }
-        },
-        elements: {
-          arc: {
-            borderWidth: 0
-          }
-        }
-      }
-    }
-  }
-
 
   function makeAMove(move: ShortMove) {
     const gameCopy = { ...board };
@@ -367,17 +220,10 @@ function App() {
     return true;
   }
 
-  const columns: GridColDef[] = [
-    { field: 'url', headerName: 'Link', width: 325, renderCell: renderLink },
-    { field: 'color', headerName: 'Color' },
-    { field: 'endTime', headerName: 'End Time', sortComparator: gridDateComparator, renderCell: params => params.value.toLocaleDateString() },
-    { field: 'opening', headerName: 'Opening', flex: 1 },
-  ];
-
   return (
     <div className="App">
       <div className="app-container">
-        {false ?? <div>
+        <div>
           <p>
             Game advantage evolution
           </p>
@@ -390,8 +236,8 @@ function App() {
             />
           </div>
 
-          <Chessboard position={board.fen()} onPieceDrop={onDrop} />
-        </div>}
+          {false ?? <Chessboard position={board.fen()} onPieceDrop={onDrop} />}
+        </div>
 
         <Grid sx={{ m: 1 }}>
           <TextField label="Username"
@@ -422,8 +268,8 @@ function App() {
           <TextField
             id="startDate"
             label="Start Date"
-            type="date"
-            defaultValue={startDate.toISOString().substring(0, 10)}
+            type="month"
+            defaultValue={startDate.toISOString().substring(0, 7)}
             size="small"
             sx={{ width: 150, m: 1 }}
             InputLabelProps={{
@@ -436,9 +282,9 @@ function App() {
           <TextField
             id="endDate"
             label="End date"
-            type="date"
-            InputProps={{ inputProps: { max: new Date().toISOString().substring(0, 10) } }}
-            defaultValue={endDate.toISOString().substring(0, 10)}
+            type="month"
+            InputProps={{ inputProps: { max: new Date().toISOString().substring(0, 7) } }}
+            defaultValue={endDate.toISOString().substring(0, 7)}
             size="small"
             sx={{ width: 150, m: 1 }}
             InputLabelProps={{
@@ -451,105 +297,11 @@ function App() {
           <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }}>Compute</Button>
         </Grid>
 
-        <Grid container className="openings">
-          <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
-            <h2>As white</h2>
-            {openingResultPiesWhiteAll ? (<div style={{ width: "220px" }} className={"clickable " + (openingOpenWhite || !openingOpenBlack ? "selected" : "")}>
-              <Pie data={openingResultPiesWhiteAll} options={openingResultPiesWhiteAll.options} />
-            </div>) : null}
-          </div>
-
-          <div onClick={() => { setOpeningOpenWhite(false); setOpeningOpenBlack(!openingOpenBlack); setOpeningDetailsVariant(null); }}>
-            <h2>As black</h2>
-            {openingResultPiesBlackAll ? (<div style={{ width: "220px" }} className={"clickable " + (openingOpenBlack || !openingOpenWhite ? "selected" : "")}>
-              <Pie data={openingResultPiesBlackAll} options={openingResultPiesBlackAll.options} />
-            </div>) : null}
-          </div>
-        </Grid>
-
-        <div>
-          {(openingOpenWhite || openingOpenBlack) ? (<h2>Main variants</h2>) : null}
-          {openingOpenWhite ? (<div>
-            <Grid container className="opening-container">
-              {openingResultPiesWhite.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
-                <div
-                  key={x.datasets[0].label}
-                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                  style={{ width: "180px", }}
-                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                  <Pie data={x} options={x.options} />
-                </div>
-              )}
-            </Grid>
-            {
-              (openingResultPiesWhite.length > 5) ?
-                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMore(!showMore)}>{showMore ? "See less" : "See more"}</Button>
-                : null
-            }
-          </div>) : null}
-
-          {openingOpenBlack ? (<div>
-            <Grid container className="opening-container">
-              {openingResultPiesBlack.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
-                <div
-                  key={x.datasets[0].label}
-                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                  style={{ width: "180px", }}
-                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                  <Pie data={x} options={x.options} />
-                </div>
-              )}
-            </Grid>
-            {
-              (openingResultPiesBlack.length > 5) ?
-                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMore(!showMore)}>{showMore ? "See less" : "See more"}</Button>
-                : null
-            }
-          </div>) : null}
-        </div>
-
-        <div>
-          {openingDetailsVariant ? (<h2>Detailed variants</h2>) : null}
-
-          {openingOpenWhite && openingDetailsVariant && openingResultPiesWhiteDetailed ? (<div>
-            <Grid container className="opening-container">
-              {openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
-                <div key={x.datasets[0].label} style={{ width: "180px", }}>
-                  <Pie data={x} options={x.options} />
-                </div>
-              )}
-            </Grid>
-            {
-              (openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).length > 5) ?
-                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMoreDetailed(!showMoreDetailed)}>{showMoreDetailed ? "See less" : "See more"}</Button>
-                : null
-            }
-          </div>) : null}
-
-          {openingOpenBlack && openingDetailsVariant && openingResultPiesBlackDetailed ? (<div>
-            <Grid container className="opening-container">
-              {openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
-                <div key={x.datasets[0].label} style={{ width: "180px", }}>
-                  <Pie data={x} options={x.options} />
-                </div>
-              )}
-            </Grid>
-            {
-              (openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).length > 5) ?
-                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMoreDetailed(!showMoreDetailed)}>{showMoreDetailed ? "See less" : "See more"}</Button>
-                : null
-            }
-          </div>) : null}
-        </div>
+        <Openings archives={hydratedArchives}></Openings>
 
         <h2>Games</h2>
         <div style={{ height: "100vh", width: "100%", maxWidth: 900, marginTop: 30 }}>
-          <DataGrid
-            disableSelectionOnClick
-            columns={columns}
-            rows={gridRow}
-            {...data}
-            components={{ Toolbar: GridToolbar }} />
+          <GamesTable gridRow={gridRow}></GamesTable>
         </div>
       </div>
     </div >
