@@ -64,11 +64,21 @@ export function getResult(code: GameResultsCode): -1 | 0 | 1 {
   }
 }
 
+export function getResultAsString(code: GameResultsCode) {
+  switch (getResult(code)) {
+    case 1: return "Victory";
+    case -1: return "Loss";
+    case 0: return "Draw";
+  }
+}
+
 export type HydratedChessComArchive = ChessComArchive & {
   opening: string,
   playingWhite: boolean,
   result: GameResultsCode,
   eco: string
+  cleanedPgn: string;
+  scoreOutOfOpening: number;
 }
 
 export type TimeClass = "blitz" | "bullet" | "rapid"

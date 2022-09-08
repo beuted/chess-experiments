@@ -16,7 +16,7 @@ import {
 } from 'chart.js';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
-import { ChessComArchive, getResult, HydratedChessComArchive } from './ChessComArchive';
+import { ChessComArchive, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
 import {
   GridRowsProp,
@@ -58,6 +58,9 @@ function App() {
   const [startDate, setStartDate] = useState<Date>(startDateDefault);
   const [endDate, setEndDate] = useState<Date>(new Date());
 
+  const [useEarlyAdvantageOverResult, setUseEarlyAdvantageOverResult] = useState<boolean>(false);
+
+
   const [data, setData] = useState(defaultData);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
@@ -66,12 +69,15 @@ function App() {
   const [gridRow, setGridRow] = useState<GridRowsProp>([]);
 
 
+
+
   useEffect(() => {
     (async () => {
       // Compute Stuff
-      const chess = new Chess();
+      /*const chess = new Chess();
 
       sf.reset();
+      console.log("sf has been reset");
       await sf.init((state: StockfishState) => {
         //Just compute things at the end it's fine
 
@@ -85,7 +91,7 @@ function App() {
       let fen: string | undefined = chess.fen();
       while (fen != undefined) {
         // GUI: tell the engine the position to search
-        sf.computeFen("r3k2r/pp1n1pp1/2p1pq1p/3p4/1bPP4/2NQPN2/PP3PPP/R4RK1 w kq - 2 12");
+        //sf.computeFen("r4rk1/ppp1nppp/7b/4Pb2/8/3B4/PP4PP/RN3R1K w - - 0 16");
 
         var res = chess.undo();
         fen = res == null ? undefined : chess.fen();
@@ -100,7 +106,7 @@ function App() {
 
       data.datasets[0].data = state.scoreEvolution;
       data.labels = Array.from(Array(data.datasets[0].data.length).keys()).map(x => '' + x);
-      setData(JSON.parse(JSON.stringify(data)));
+      setData(JSON.parse(JSON.stringify(data)));*/
     })();
   }, []);
 
@@ -119,6 +125,8 @@ function App() {
 
       // Remove the number like so "2..." between each move
       cleanedPgn = cleanedPgn.replace(/[0-9]+\.\.\. /g, '');
+
+      archive.cleanedPgn = cleanedPgn;
 
       for (var opening of FullOpenings) {
         if (cleanedPgn.startsWith(opening.pgn)) {
@@ -142,21 +150,44 @@ function App() {
         console.log("what is this opening " + archive.url);
         continue;
       }
-
-      // Load the score on move 15
-      var pgnArray = cleanedPgn.split('.');
-      let pgnMove15 = null;
-      if (pgnArray.length <= 16)
-        pgnMove15 = cleanedPgn;
-      else
-        pgnMove15 = pgnArray.slice(0, 16).join(".").slice(0, -3);
-
-      chess.load_pgn(pgnMove15);
-      const fen = chess.fen();
-      sf.computeFen(fen);
     }
 
-    setHydratedArchives(filteredArchives);
+    //setHydratedArchives(filteredArchives);
+
+    // Compute score at move 15
+    (async () => {
+      await sf.init((state: StockfishState) => {
+        console.log(state.scores.length + "/" + filteredArchives.length);
+        // While we don't have computed everything into sf state don't use it
+        if (filteredArchives.length !== state.scores.length)
+          return;
+
+        // Updat ethe hydrated archives
+        let i = 0;
+        for (var archive of filteredArchives) {
+          archive.scoreOutOfOpening = state.scores[i];
+          i++;
+        }
+        console.log(filteredArchives);
+        setHydratedArchives(filteredArchives);
+      });
+
+      for (var archive of filteredArchives) {
+        // Load the score on move 15
+        var pgnArray = archive.cleanedPgn.split('.');
+        let pgnMove15 = null;
+        if (pgnArray.length <= 10)
+          pgnMove15 = archive.cleanedPgn;
+        else
+          pgnMove15 = pgnArray.slice(0, 10).join(".").slice(0, -3);
+
+        console.log(pgnMove15)
+        chess.load_pgn(pgnMove15);
+        const fen = chess.fen();
+        sf.computeFen(fen);
+      }
+    })();
+
   }, [archives]);
 
   useEffect(() => {
@@ -165,15 +196,15 @@ function App() {
       id: i,
       url: x.url,
       color: x.playingWhite ? 'white' : 'black',
+      result: getResultAsString(x.result),
+      scoreAtMove15: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
       endTime: new Date(x.end_time * 1000),
       opening: x.opening,
     })))
   }, [hydratedArchives]);
 
   async function fetchGames() {
-
     // Fetch player info
-
     const responsePlayer = await chessAPI.getPlayer(userName);
     const userNameFixed = responsePlayer.body.url.slice(29); // Here we fix the potential capital cases that a username can have
     setUserName(userNameFixed);
@@ -223,7 +254,7 @@ function App() {
   return (
     <div className="App">
       <div className="app-container">
-        <div>
+        {false ?? <div>
           <p>
             Game advantage evolution
           </p>
@@ -236,8 +267,8 @@ function App() {
             />
           </div>
 
-          {false ?? <Chessboard position={board.fen()} onPieceDrop={onDrop} />}
-        </div>
+          <Chessboard position={board.fen()} onPieceDrop={onDrop} />
+        </div>}
 
         <Grid sx={{ m: 1 }}>
           <TextField label="Username"
@@ -297,7 +328,8 @@ function App() {
           <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }}>Compute</Button>
         </Grid>
 
-        <Openings archives={hydratedArchives}></Openings>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening"}</Button>
+        <Openings archives={hydratedArchives} useEarlyAdvantageOverResult={useEarlyAdvantageOverResult}></Openings>
 
         <h2>Games</h2>
         <div style={{ height: "100vh", width: "100%", maxWidth: 900, marginTop: 30 }}>

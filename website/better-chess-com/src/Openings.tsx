@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
 import { getResult, HydratedChessComArchive } from "./ChessComArchive";
 
-type OpeningsProps = { archives: HydratedChessComArchive[] }
+type OpeningsProps = { archives: HydratedChessComArchive[], useEarlyAdvantageOverResult: boolean }
 
 export function Openings(props: OpeningsProps) {
   const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
@@ -26,7 +26,7 @@ export function Openings(props: OpeningsProps) {
 
   function getPieData(label: string, win: number, draw: number, lose: number) {
     return {
-      labels: ['Win', 'Draw', 'Lose'],
+      labels: props.useEarlyAdvantageOverResult ? ['Advantage', 'Even', 'Disadvantage'] : ['Win', 'Draw', 'Lose'],
       datasets: [
         {
           label: label,
@@ -58,6 +58,10 @@ export function Openings(props: OpeningsProps) {
     }
   }
 
+  function getAdvantage(scoreOutOfOpening: number) {
+    return scoreOutOfOpening < -1.5 ? -1 : (scoreOutOfOpening > 1.5 ? 1 : 0)
+  }
+
   useEffect(() => {
     if (props.archives.length == 0)
       return;
@@ -69,7 +73,7 @@ export function Openings(props: OpeningsProps) {
 
     for (var archive of props.archives) {
       // Set the results per opening dic
-      const result = getResult(archive.result);
+      const result = props.useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening) : getResult(archive.result);
       const openingSimplified = archive.opening.split(":")[0];
 
       if (archive.playingWhite) {
@@ -148,7 +152,7 @@ export function Openings(props: OpeningsProps) {
       chartsDetailedBlack.push(openingResultData);
     }
     setOpeningResultPiesBlackDetailed(chartsDetailedBlack);
-  }, [props.archives])
+  }, [props.archives, props.useEarlyAdvantageOverResult])
 
   return (<>
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
