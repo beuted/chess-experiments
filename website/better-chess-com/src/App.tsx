@@ -83,11 +83,14 @@ function App() {
   const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
   const [openingOpenBlack, setOpeningOpenBlack] = useState<boolean>(false);
   const [openingDetailsVariant, setOpeningDetailsVariant] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState<boolean>(false);
+  const [showMoreDetailed, setShowMoreDetailed] = useState<boolean>(false);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
   const [filteredArchives, setFilteredArchives] = useState<HydratedChessComArchive[]>([]);
   const [gridRow, setGridRow] = useState<GridRowsProp>([]);
+
 
   useEffect(() => {
     (async () => {
@@ -466,49 +469,77 @@ function App() {
 
         <div>
           {(openingOpenWhite || openingOpenBlack) ? (<h2>Main variants</h2>) : null}
-          {openingOpenWhite ? (<Grid container className="opening-container">
-            {openingResultPiesWhite.map(x =>
-              <div
-                key={x.datasets[0].label}
-                className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                style={{ width: "180px", }}
-                onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>) : null}
+          {openingOpenWhite ? (<div>
+            <Grid container className="opening-container">
+              {openingResultPiesWhite.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
+                <div
+                  key={x.datasets[0].label}
+                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                  style={{ width: "180px", }}
+                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid>
+            {
+              (openingResultPiesWhite.length > 5) ?
+                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMore(!showMore)}>{showMore ? "See less" : "See more"}</Button>
+                : null
+            }
+          </div>) : null}
 
-          {openingOpenBlack ? (<Grid container className="opening-container">
-            {openingResultPiesBlack.map(x =>
-              <div
-                key={x.datasets[0].label}
-                className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                style={{ width: "180px", }}
-                onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>) : null}
+          {openingOpenBlack ? (<div>
+            <Grid container className="opening-container">
+              {openingResultPiesBlack.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
+                <div
+                  key={x.datasets[0].label}
+                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                  style={{ width: "180px", }}
+                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid>
+            {
+              (openingResultPiesBlack.length > 5) ?
+                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMore(!showMore)}>{showMore ? "See less" : "See more"}</Button>
+                : null
+            }
+          </div>) : null}
         </div>
 
         <div>
           {openingDetailsVariant ? (<h2>Detailed variants</h2>) : null}
 
-          {openingOpenWhite && openingResultPiesWhiteDetailed ? (<Grid container className="opening-container">
-            {openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).map(x =>
-              <div key={x.datasets[0].label} style={{ width: "180px", }}>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>) : null}
+          {openingOpenWhite && openingDetailsVariant && openingResultPiesWhiteDetailed ? (<div>
+            <Grid container className="opening-container">
+              {openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
+                <div key={x.datasets[0].label} style={{ width: "180px", }}>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid>
+            {
+              (openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).length > 5) ?
+                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMoreDetailed(!showMoreDetailed)}>{showMoreDetailed ? "See less" : "See more"}</Button>
+                : null
+            }
+          </div>) : null}
 
-          {openingOpenBlack && openingResultPiesBlackDetailed ? (<Grid container className="opening-container">
-            {openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).map(x =>
-              <div key={x.datasets[0].label} style={{ width: "180px", }}>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>) : null}
+          {openingOpenBlack && openingDetailsVariant && openingResultPiesBlackDetailed ? (<div>
+            <Grid container className="opening-container">
+              {openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
+                <div key={x.datasets[0].label} style={{ width: "180px", }}>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid>
+            {
+              (openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).length > 5) ?
+                <Button size="small" variant="text" sx={{ mt: 1 }} onClick={() => setShowMoreDetailed(!showMoreDetailed)}>{showMoreDetailed ? "See less" : "See more"}</Button>
+                : null
+            }
+          </div>) : null}
         </div>
 
         <h2>Games</h2>
@@ -520,8 +551,6 @@ function App() {
             {...data}
             components={{ Toolbar: GridToolbar }} />
         </div>
-
-
       </div>
     </div >
   );
