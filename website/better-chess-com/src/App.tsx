@@ -54,7 +54,7 @@ function App() {
   var startDateDefault = new Date();
   startDateDefault.setMonth(startDateDefault.getMonth() - 3);
   const [gameType, setGameType] = useState<string>("rapid");
-  const [userName, setUserName] = useState<string>("nicolas-t");
+  const [userName, setUserName] = useState<string>("difiouzz");
   const [startDate, setStartDate] = useState<Date>(startDateDefault);
   const [endDate, setEndDate] = useState<Date>(new Date());
 
@@ -328,7 +328,7 @@ function App() {
           <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }}>Compute</Button>
         </Grid>
 
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening"}</Button>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 10)"}</Button>
         <Openings archives={hydratedArchives} useEarlyAdvantageOverResult={useEarlyAdvantageOverResult}></Openings>
 
         <h2>Games</h2>

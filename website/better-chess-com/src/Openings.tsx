@@ -60,7 +60,8 @@ export function Openings(props: OpeningsProps) {
 
   function getAdvantage(scoreOutOfOpening: number, playingWhite: boolean) {
     var scoreOutOfOpeningCorrected = scoreOutOfOpening * (playingWhite ? 1 : -1);
-    return scoreOutOfOpeningCorrected < -1.5 ? -1 : (scoreOutOfOpeningCorrected > 1.5 ? 1 : 0)
+    console.log(scoreOutOfOpeningCorrected);
+    return scoreOutOfOpeningCorrected < -150 ? -1 : (scoreOutOfOpeningCorrected > 150 ? 1 : 0)
   }
 
   useEffect(() => {
