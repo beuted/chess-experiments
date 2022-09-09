@@ -58,8 +58,9 @@ export function Openings(props: OpeningsProps) {
     }
   }
 
-  function getAdvantage(scoreOutOfOpening: number) {
-    return scoreOutOfOpening < -1.5 ? -1 : (scoreOutOfOpening > 1.5 ? 1 : 0)
+  function getAdvantage(scoreOutOfOpening: number, playingWhite: boolean) {
+    var scoreOutOfOpeningCorrected = scoreOutOfOpening * (playingWhite ? 1 : -1);
+    return scoreOutOfOpeningCorrected < -1.5 ? -1 : (scoreOutOfOpeningCorrected > 1.5 ? 1 : 0)
   }
 
   useEffect(() => {
@@ -73,7 +74,7 @@ export function Openings(props: OpeningsProps) {
 
     for (var archive of props.archives) {
       // Set the results per opening dic
-      const result = props.useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening) : getResult(archive.result);
+      const result = props.useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening, archive.playingWhite) : getResult(archive.result);
       const openingSimplified = archive.opening.split(":")[0];
 
       if (archive.playingWhite) {
