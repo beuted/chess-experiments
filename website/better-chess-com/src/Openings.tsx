@@ -1,10 +1,11 @@
-import { Button, Grid } from "@mui/material";
+import { Button, Grid, Tooltip } from "@mui/material";
 import { ChartData } from "chart.js";
 import { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
 import { getResult, HydratedChessComArchive } from "./ChessComArchive";
+import InfoIcon from '@mui/icons-material/Info';
 
-type OpeningsProps = { archives: HydratedChessComArchive[], useEarlyAdvantageOverResult: boolean }
+type OpeningsProps = { archives: HydratedChessComArchive[] | undefined }
 
 export function Openings(props: OpeningsProps) {
   const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
@@ -12,6 +13,7 @@ export function Openings(props: OpeningsProps) {
   const [openingDetailsVariant, setOpeningDetailsVariant] = useState<string | null>(null);
   const [showMore, setShowMore] = useState<boolean>(false);
   const [showMoreDetailed, setShowMoreDetailed] = useState<boolean>(false)
+  const [useEarlyAdvantageOverResult, setUseEarlyAdvantageOverResult] = useState<boolean>(false);
 
   const [openingResultPiesWhite, setOpeningResultPiesWhite] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
   const [openingResultPiesWhiteAll, setOpeningResultPiesWhiteAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
@@ -26,7 +28,7 @@ export function Openings(props: OpeningsProps) {
 
   function getPieData(label: string, win: number, draw: number, lose: number) {
     return {
-      labels: props.useEarlyAdvantageOverResult ? ['Advantage', 'Even', 'Disadvantage'] : ['Win', 'Draw', 'Lose'],
+      labels: useEarlyAdvantageOverResult ? ['Advantage', 'Even', 'Disadvantage'] : ['Win', 'Draw', 'Lose'],
       datasets: [
         {
           label: label,
@@ -65,7 +67,7 @@ export function Openings(props: OpeningsProps) {
   }
 
   useEffect(() => {
-    if (props.archives.length == 0)
+    if (!props.archives || props.archives.length == 0)
       return;
 
     let resultPerOpeningWhite: { [opening: string]: { win: number, lose: number, draw: number } } = {}
@@ -75,7 +77,7 @@ export function Openings(props: OpeningsProps) {
 
     for (var archive of props.archives) {
       // Set the results per opening dic
-      const result = props.useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening, archive.playingWhite) : getResult(archive.result);
+      const result = useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening, archive.playingWhite) : getResult(archive.result);
       const openingSimplified = archive.opening.split(":")[0];
 
       if (archive.playingWhite) {
@@ -154,12 +156,15 @@ export function Openings(props: OpeningsProps) {
       chartsDetailedBlack.push(openingResultData);
     }
     setOpeningResultPiesBlackDetailed(chartsDetailedBlack);
-  }, [props.archives, props.useEarlyAdvantageOverResult])
+  }, [props.archives, useEarlyAdvantageOverResult])
 
   return (<>
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
       <>
         <h2>Openings</h2>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 10)"}
+          <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
+        </Button>
         <Grid container className="openings">
           <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
             <h3>As white</h3>
@@ -250,6 +255,7 @@ export function Openings(props: OpeningsProps) {
             }
           </div>) : null}
         </div>
-      </>) : null}
+      </>) : null
+    }
   </>);
 }

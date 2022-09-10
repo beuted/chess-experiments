@@ -24,6 +24,8 @@ import {
 import { Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
+import { TimeManagement } from './TimeManagement';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 ChartJS.register(CategoryScale,
   LinearScale,
@@ -58,15 +60,12 @@ function App() {
   const [startDate, setStartDate] = useState<Date>(startDateDefault);
   const [endDate, setEndDate] = useState<Date>(new Date());
 
-  const [useEarlyAdvantageOverResult, setUseEarlyAdvantageOverResult] = useState<boolean>(false);
-
-
   const [data, setData] = useState(defaultData);
 
   const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
-  const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>([]);
-  const [gridRow, setGridRow] = useState<GridRowsProp>([]);
+  const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
+  const [gridRow, setGridRow] = useState<GridRowsProp>();
 
 
 
@@ -120,8 +119,20 @@ function App() {
       // Remove description
       let cleanedPgn = archive.pgn.split('\n\n')[1];
 
+      let matches = cleanedPgn.match(/\{\[%clk[^\{\[\]\}]*\]\} /g);
+
       // Remove everything between "{[ ... ]}"
       cleanedPgn = cleanedPgn.replace(/\{\[[^\{\[\]\}]*\]\} /g, '');
+
+      if (matches) {
+        let clickTimes = matches.map(x => {
+          let timeString = x.substring(7, x.length - 3);
+          let timeAsArray = timeString.split(":");
+          return Number(timeAsArray[0]) * 60 * 60 + Number(timeAsArray[1]) * 60 + Number(timeAsArray[2]);
+        });
+        archive.whiteTimes = clickTimes.filter((_, i) => i % 2 === 0);
+        archive.blackTimes = clickTimes.filter((_, i) => i % 2 === 1);
+      }
 
       // Remove the number like so "2..." between each move
       cleanedPgn = cleanedPgn.replace(/[0-9]+\.\.\. /g, '');
@@ -168,7 +179,6 @@ function App() {
           archive.scoreOutOfOpening = state.scores[i];
           i++;
         }
-        console.log(filteredArchives);
         setHydratedArchives(filteredArchives);
       });
 
@@ -181,7 +191,6 @@ function App() {
         else
           pgnMove15 = pgnArray.slice(0, 10).join(".").slice(0, -3);
 
-        console.log(pgnMove15)
         chess.load_pgn(pgnMove15);
         const fen = chess.fen();
         sf.computeFen(fen);
@@ -191,6 +200,8 @@ function App() {
   }, [archives]);
 
   useEffect(() => {
+    if (!hydratedArchives || hydratedArchives.length == 0)
+      return;
     // Set grid rows
     setGridRow(hydratedArchives.map((x, i) => ({
       id: i,
@@ -328,10 +339,15 @@ function App() {
           <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }}>Compute</Button>
         </Grid>
 
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 10)"}</Button>
-        <Openings archives={hydratedArchives} useEarlyAdvantageOverResult={useEarlyAdvantageOverResult}></Openings>
+        {(!archives || archives.length == 0) ? <div>
 
-        <h2>Games</h2>
+          <PsychologyIcon sx={{ fontSize: 120, mt: 5 }} />
+          <p>Enter your username and select a time range</p>
+        </div> : null}
+
+        <Openings archives={hydratedArchives}></Openings>
+        <TimeManagement archives={hydratedArchives}></TimeManagement>
+
         <div style={{ height: "100vh", width: "100%", maxWidth: 900, marginTop: 30 }}>
           <GamesTable gridRow={gridRow}></GamesTable>
         </div>

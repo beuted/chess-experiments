@@ -79,6 +79,8 @@ export type HydratedChessComArchive = ChessComArchive & {
   eco: string
   cleanedPgn: string;
   scoreOutOfOpening: number;
+  whiteTimes: number[],
+  blackTimes: number[],
 }
 
 export type TimeClass = "blitz" | "bullet" | "rapid"

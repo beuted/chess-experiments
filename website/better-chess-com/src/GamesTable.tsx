@@ -1,7 +1,7 @@
 import { DataGrid, GridColDef, gridDateComparator, GridRowsProp, GridToolbar } from "@mui/x-data-grid";
 import { renderLink } from "./renderLink";
 
-type GamesTableProps = { gridRow: GridRowsProp }
+type GamesTableProps = { gridRow: GridRowsProp | undefined }
 
 export function GamesTable(props: GamesTableProps) {
   const columns: GridColDef[] = [
@@ -15,10 +15,14 @@ export function GamesTable(props: GamesTableProps) {
 
 
   return (
-    <DataGrid
-      disableSelectionOnClick
-      columns={columns}
-      rows={props.gridRow}
-      components={{ Toolbar: GridToolbar }} />
+    props.gridRow ?
+      <>
+        <h2>Games</h2>
+        <DataGrid
+          disableSelectionOnClick
+          columns={columns}
+          rows={props.gridRow}
+          components={{ Toolbar: GridToolbar }} />
+      </> : null
   )
 }
