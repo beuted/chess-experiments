@@ -21,11 +21,20 @@ import { FullOpenings } from './FullOpening';
 import {
   GridRowsProp,
 } from '@mui/x-data-grid';
-import { Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Alert, Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
 import { TimeManagement } from './TimeManagement';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import { EndGame } from './EndGame';
+
+
+enum LoadingState {
+  NotLoading = 0,
+  FetchingGames = 1,
+  ComputingStats = 2,
+  ErrorFetchingUser = 3
+}
 
 ChartJS.register(CategoryScale,
   LinearScale,
@@ -56,7 +65,8 @@ function App() {
   var startDateDefault = new Date();
   startDateDefault.setMonth(startDateDefault.getMonth() - 3);
   const [gameType, setGameType] = useState<string>("rapid");
-  const [userName, setUserName] = useState<string>("difiouzz");
+  let storedUserName = localStorage.getItem('userName') || '';
+  const [userName, setUserName] = useState<string>(storedUserName);
   const [startDate, setStartDate] = useState<Date>(startDateDefault);
   const [endDate, setEndDate] = useState<Date>(new Date());
 
@@ -66,48 +76,7 @@ function App() {
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
   const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
   const [gridRow, setGridRow] = useState<GridRowsProp>();
-
-
-
-
-  useEffect(() => {
-    (async () => {
-      // Compute Stuff
-      /*const chess = new Chess();
-
-      sf.reset();
-      console.log("sf has been reset");
-      await sf.init((state: StockfishState) => {
-        //Just compute things at the end it's fine
-
-        //data.datasets[0].data = state.scoreEvolution;
-        //data.labels = Array.from(Array(data.datasets[0].data.length).keys()).map(x => '' + x);
-        //setData(JSON.parse(JSON.stringify(data)));
-      });
-
-      chess.load_pgn("1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 Bf5 5. Bg5 e6 6. e3 h6 7. Bh4 Be7 8. Bd3 Bxd3 9. Qxd3 Bb4 10. Bxf6 Qxf6 11. O-O Nd7 12. a3 Ba5 13. b4 Bc7 14. c5 O-O 15. e4 Qg6 16. exd5 Qxd3 17. dxe6 fxe6 18. Na2 Qxa3 19. Nh4 Qb2 20. Ng6 Rxf2 21. Rxf2 Qxa1+ 22. Rf1 Qxa2 23. Ne7+ Kh7 24. Rf2 Qb1+ 25. Rf1 Qc2 26. Rf2 Qd1+ 27. Rf1 Qxd4+ 28. Rf2 Bxh2+ 29. Kf1 Qd1# 0-1");
-
-      let fen: string | undefined = chess.fen();
-      while (fen != undefined) {
-        // GUI: tell the engine the position to search
-        //sf.computeFen("r4rk1/ppp1nppp/7b/4Pb2/8/3B4/PP4PP/RN3R1K w - - 0 16");
-
-        var res = chess.undo();
-        fen = res == null ? undefined : chess.fen();
-        setBoard({ ...chess });
-      }
-
-      while (!sf.isReady) {
-        await new Promise<void>((success) => { setTimeout(() => { success() }, 1000) })
-      }
-
-      let state = sf.computeExtraAnalytics();
-
-      data.datasets[0].data = state.scoreEvolution;
-      data.labels = Array.from(Array(data.datasets[0].data.length).keys()).map(x => '' + x);
-      setData(JSON.parse(JSON.stringify(data)));*/
-    })();
-  }, []);
+  const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.NotLoading);
 
   useEffect(() => {
     const chess = new Chess();
@@ -211,14 +180,25 @@ function App() {
       scoreAtMove15: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
       endTime: new Date(x.end_time * 1000),
       opening: x.opening,
-    })))
+    })));
+    setLoadingState(LoadingState.NotLoading);
   }, [hydratedArchives]);
 
   async function fetchGames() {
+    setLoadingState(LoadingState.FetchingGames);
     // Fetch player info
-    const responsePlayer = await chessAPI.getPlayer(userName);
+
+    let responsePlayer;
+    try {
+      responsePlayer = await chessAPI.getPlayer(userName);
+    } catch {
+      setLoadingState(LoadingState.ErrorFetchingUser);
+    }
     const userNameFixed = responsePlayer.body.url.slice(29); // Here we fix the potential capital cases that a username can have
     setUserName(userNameFixed);
+
+    // Store name in localstorage to load it next time
+    localStorage.setItem('userName', userNameFixed);
 
     // Fetch all archives (for one month for now)
     let archiveTemp: ChessComArchive[] = []
@@ -239,6 +219,7 @@ function App() {
         m++;
       }
     }
+    setLoadingState(LoadingState.ComputingStats);
     setArchives(archiveTemp);
   }
 
@@ -336,17 +317,23 @@ function App() {
               setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
             }}
           />
-          <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }}>Compute</Button>
+          <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }} disabled={[LoadingState.FetchingGames, LoadingState.ComputingStats].includes(loadingState)}>
+            {[LoadingState.FetchingGames, LoadingState.ComputingStats].includes(loadingState) ? "Computing..." : "Compute"}
+          </Button>
         </Grid>
+        {loadingState == LoadingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
+
 
         {(!archives || archives.length == 0) ? <div>
-
           <PsychologyIcon sx={{ fontSize: 120, mt: 5 }} />
-          <p>Enter your username and select a time range</p>
+          {loadingState == LoadingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
+          {loadingState == LoadingState.FetchingGames ? <p>Fetching games from chess.com...</p> : null}
+          {loadingState == LoadingState.ComputingStats ? <p>Computing statistics...</p> : null}
         </div> : null}
 
         <Openings archives={hydratedArchives}></Openings>
         <TimeManagement archives={hydratedArchives}></TimeManagement>
+        <EndGame archives={hydratedArchives}></EndGame>
 
         <div style={{ height: "100vh", width: "100%", maxWidth: 900, marginTop: 30 }}>
           <GamesTable gridRow={gridRow}></GamesTable>
