@@ -16,7 +16,7 @@ import {
 } from 'chart.js';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
-import { ChessComArchive, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
+import { ChessComArchive, getPgnAtMove, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
 import {
   GridRowsProp,
@@ -153,13 +153,7 @@ function App() {
 
       for (var archive of filteredArchives) {
         // Load the score on move 15
-        var pgnArray = archive.cleanedPgn.split('.');
-        let pgnMove15 = null;
-        if (pgnArray.length <= 10)
-          pgnMove15 = archive.cleanedPgn;
-        else
-          pgnMove15 = pgnArray.slice(0, 10).join(".").slice(0, -3);
-
+        let pgnMove15 = getPgnAtMove(archive.cleanedPgn, 15);
         chess.load_pgn(pgnMove15);
         const fen = chess.fen();
         sf.computeFen(fen);

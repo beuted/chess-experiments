@@ -72,6 +72,17 @@ export function getResultAsString(code: GameResultsCode) {
   }
 }
 
+export function getPgnAtMove(cleanedPgn: string, move: number) {
+  // Load the score on move 15
+  var pgnArray = cleanedPgn.split('.');
+  let pgnMove15 = null;
+  if (pgnArray.length <= 10)
+    pgnMove15 = cleanedPgn;
+  else
+    pgnMove15 = pgnArray.slice(0, 10).join(".").slice(0, -3);
+  return pgnMove15;
+}
+
 export type HydratedChessComArchive = ChessComArchive & {
   opening: string,
   playingWhite: boolean,
