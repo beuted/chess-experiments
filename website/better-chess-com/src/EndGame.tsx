@@ -16,13 +16,16 @@ export function EndGame(props: EndGameProps) {
   const [otherOpenningDataChart, setOtherOpenningDataChart] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
 
   function setFinalFilter(final: string | undefined): any {
-    console.log("yp", final)
     if (!final)
       return;
 
     props.setTableFilters({
       items: [{ columnField: 'final', operatorValue: 'contains', value: final }],
     });
+
+    // Scroll to the table
+    const section = document.querySelector('#games-table');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   useEffect(() => {

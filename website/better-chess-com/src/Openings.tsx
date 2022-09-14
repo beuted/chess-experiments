@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
 import { getResult, HydratedChessComArchive } from "./ChessComArchive";
 import InfoIcon from '@mui/icons-material/Info';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import { GridFilterModel } from "@mui/x-data-grid";
 
-type OpeningsProps = { archives: HydratedChessComArchive[] | undefined }
+type OpeningsProps = { archives: HydratedChessComArchive[] | undefined, setTableFilters: (filters: GridFilterModel) => void }
 
 export function Openings(props: OpeningsProps) {
   const [openingOpenWhite, setOpeningOpenWhite] = useState<boolean>(false);
@@ -158,12 +160,27 @@ export function Openings(props: OpeningsProps) {
     setOpeningResultPiesBlackDetailed(chartsDetailedBlack);
   }, [props.archives, useEarlyAdvantageOverResult])
 
+  function setOpeningFilter(e: React.MouseEvent<SVGSVGElement, MouseEvent>, opening: string | undefined): any {
+    if (!opening)
+      return;
+
+    props.setTableFilters({
+      items: [{ columnField: 'opening', operatorValue: 'contains', value: opening }],
+    });
+
+    // Scroll to the table
+    const section = document.querySelector('#games-table');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    e.preventDefault();
+  }
+
   return (<>
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Openings</h2>
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 10)"}
-          <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 15)"}
+          <Tooltip title="Advantage is computed at move 15. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
         </Button>
         <Grid container className="openings">
           <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
@@ -188,10 +205,10 @@ export function Openings(props: OpeningsProps) {
               {openingResultPiesWhite.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
                 <div
                   key={x.datasets[0].label}
-                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                  style={{ width: "180px", }}
-                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                  <Pie data={x} options={x.options} />
+                  className={"filter-on-click clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                  style={{ width: "180px", }}>
+                  <Tooltip title="Filter below table on this type of opening" arrow><FilterAltIcon className="pie-filter-button" onClick={(e) => setOpeningFilter(e, x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                  <Pie data={x} options={x.options} onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)} />
                 </div>
               )}
             </Grid>
@@ -207,10 +224,10 @@ export function Openings(props: OpeningsProps) {
               {openingResultPiesBlack.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
                 <div
                   key={x.datasets[0].label}
-                  className={"clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
-                  style={{ width: "180px", }}
-                  onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)}>
-                  <Pie data={x} options={x.options} />
+                  className={"filter-on-click clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}
+                  style={{ width: "180px" }}>
+                  <Tooltip title="Filter below table on this type of opening" arrow><FilterAltIcon className="pie-filter-button" onClick={(e) => setOpeningFilter(e, x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                  <Pie data={x} options={x.options} onClick={() => setOpeningDetailsVariant(x.datasets[0].label || null)} />
                 </div>
               )}
             </Grid>
@@ -228,7 +245,8 @@ export function Openings(props: OpeningsProps) {
           {openingOpenWhite && openingDetailsVariant && openingResultPiesWhiteDetailed ? (<div>
             <Grid container className="opening-container">
               {openingResultPiesWhiteDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
-                <div key={x.datasets[0].label} style={{ width: "180px", }}>
+                <div key={x.datasets[0].label} style={{ width: "180px" }} className="filter-on-click">
+                  <Tooltip title="Filter below table on this type of opening" arrow><FilterAltIcon className="pie-filter-button" onClick={(e) => setOpeningFilter(e, x.datasets[0].label)}></FilterAltIcon></Tooltip>
                   <Pie data={x} options={x.options} />
                 </div>
               )}
@@ -243,7 +261,8 @@ export function Openings(props: OpeningsProps) {
           {openingOpenBlack && openingDetailsVariant && openingResultPiesBlackDetailed ? (<div>
             <Grid container className="opening-container">
               {openingResultPiesBlackDetailed.filter(x => x.options.plugins.title.text?.startsWith(openingDetailsVariant)).slice(0, showMoreDetailed ? openingResultPiesBlack.length : 5).map(x =>
-                <div key={x.datasets[0].label} style={{ width: "180px", }}>
+                <div key={x.datasets[0].label} style={{ width: "180px" }} className="filter-on-click">
+                  <Tooltip title="Filter below table on this type of opening" arrow><FilterAltIcon className="pie-filter-button" onClick={(e) => setOpeningFilter(e, x.datasets[0].label)}></FilterAltIcon></Tooltip>
                   <Pie data={x} options={x.options} />
                 </div>
               )}

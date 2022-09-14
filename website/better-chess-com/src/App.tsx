@@ -136,6 +136,7 @@ function App() {
 
     // Compute finals
     let final: Final = Final.NoFinal
+    let previousMoveFinal: Final = Final.NoFinal
 
     for (let archive of filteredArchives) {
 
@@ -150,17 +151,18 @@ function App() {
           if (isWinningFinal(final))
             archive.winningFinal = final;
 
-          // We set this as a final if the score is either nulle or defeat if not we go further back
-          if (!isWinningFinal(final) || [-1, 0].includes(getResult(archive.result)))
+          // We set this not a winning final or if this winning final score is either nulle or defeat we have our final
+          // We also make sure this situation stayed for 2 moves
+          if ((!isWinningFinal(final) || [-1, 0].includes(getResult(archive.result))) && previousMoveFinal === final)
             break;
         }
+
+        previousMoveFinal = final;
 
       } while (chess.undo() != null)
 
       archive.final = final;
     }
-
-    //setHydratedArchives(filteredArchives);
 
     // Compute score at move 15
     (async () => {
@@ -354,11 +356,11 @@ function App() {
           {loadingState == LoadingState.ComputingStats ? <p>Computing statistics...</p> : null}
         </div> : null}
 
-        <Openings archives={hydratedArchives}></Openings>
+        <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>
         <TimeManagement archives={hydratedArchives}></TimeManagement>
         <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
 
-        <div style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
+        <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
           <GamesTable gridRow={gridRow} filters={tableFilters}></GamesTable>
         </div>
       </div>
