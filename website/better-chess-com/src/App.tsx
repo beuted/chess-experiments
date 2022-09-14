@@ -84,9 +84,9 @@ function App() {
   useEffect(() => {
     const chess = new Chess();
     // compute what archive we filter on
-    var filteredArchives = archives.filter(x => x.time_class == "rapid") as HydratedChessComArchive[];
+    var filteredArchives = archives.filter(x => x.time_class === gameType) as HydratedChessComArchive[];
 
-    if (filteredArchives.length == 0) {
+    if (archives.length != 0 && filteredArchives.length == 0) {
       setLoadingState(LoadingState.ErrorNoGamesFound);
       return;
     }
