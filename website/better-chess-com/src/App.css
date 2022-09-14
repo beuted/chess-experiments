@@ -18,6 +18,21 @@
   opacity: 0.6;
 }
 
+.filter-on-click {
+  position: relative;
+}
+
+.pie-filter-button {
+  position: absolute;
+  right: 10px;
+  top: 30px;
+  cursor: pointer;
+}
+
+.pie-filter-button:hover {
+  color: #1565c0
+}
+
 .selected {
   opacity: 1 !important;
 }
@@ -30,6 +45,8 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: rgb(51, 51, 51);
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .openings {
@@ -39,15 +56,35 @@
   justify-content: center;
 }
 
+.end-games {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
 .opening-container {
   display: flex;
   flex-direction: row;
-  max-width: 900px;
   overflow-x: auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.end-games-container {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  align-items: center;
+  justify-content: center;
 }
 
 .App-link {
   color: #61dafb;
+}
+
+.card-title {
+  margin-block-start: 0;
 }
 
 @keyframes App-logo-spin {

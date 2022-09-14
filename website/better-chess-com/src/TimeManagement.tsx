@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Pie } from "react-chartjs-2";
 import { HydratedChessComArchive } from "./ChessComArchive";
 import InfoIcon from '@mui/icons-material/Info';
-import { Tooltip } from "@mui/material";
+import { Card, Grid, Tooltip } from "@mui/material";
 
 
 type TimeManagementProps = { archives: HydratedChessComArchive[] | undefined }
@@ -84,11 +84,13 @@ export function TimeManagement(props: TimeManagementProps) {
 
   return (
     timeManagementData ?
-      (<>
-        <h2>Time Management <Tooltip title="If the user is behind in time for more than 25% of the initial time at some point in the game we consider a poor time management if above 25% a good time management." arrow><InfoIcon></InfoIcon></Tooltip></h2>
-        <div style={{ width: "220px" }}>
-          <Pie data={timeManagementData} options={timeManagementData.options} />
-        </div>
-      </>) : null
+      (<Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
+        <h2 className="card-title">Time Management <Tooltip title="If the user is behind in time for more than 25% of the initial time at some point in the game we consider a poor time management if above 25% a good time management." arrow><InfoIcon></InfoIcon></Tooltip></h2>
+        <Grid className="end-games-container">
+          <div style={{ width: "220px" }}>
+            <Pie data={timeManagementData} options={timeManagementData.options} />
+          </div>
+        </Grid>
+      </Card>) : null
   )
 }

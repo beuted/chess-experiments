@@ -12,13 +12,13 @@ import {
   Tooltip,
   Legend,
   ArcElement,
-  ChartData
 } from 'chart.js';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
 import { ChessComArchive, getPgnAtMove, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
 import {
+  GridFilterModel,
   GridRowsProp,
 } from '@mui/x-data-grid';
 import { Alert, Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
@@ -26,7 +26,7 @@ import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
 import { TimeManagement } from './TimeManagement';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import { EndGame } from './EndGame';
+import { EndGame, Final, getFinal, getFinalName, getPiecesFromBoard, isWinningFinal } from './EndGame';
 
 
 enum LoadingState {
@@ -76,7 +76,9 @@ function App() {
   const [archives, setArchives] = useState<ChessComArchive[]>([]);
   const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
   const [gridRow, setGridRow] = useState<GridRowsProp>();
+  const [tableFilters, setTableFilters] = useState<GridFilterModel>({ items: [] });
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.NotLoading);
+
 
   useEffect(() => {
     const chess = new Chess();
@@ -132,6 +134,32 @@ function App() {
       }
     }
 
+    // Compute finals
+    let final: Final = Final.NoFinal
+
+    for (let archive of filteredArchives) {
+
+      chess.load_pgn(archive.cleanedPgn);
+      do {
+        let board = chess.board();
+
+        let { whitePieces, blackPieces } = getPiecesFromBoard(board);
+
+        final = archive.playingWhite ? getFinal(whitePieces, blackPieces) : getFinal(blackPieces, whitePieces);
+        if (final !== Final.NoFinal) {
+          if (isWinningFinal(final))
+            archive.winningFinal = final;
+
+          // We set this as a final if the score is either nulle or defeat if not we go further back
+          if (!isWinningFinal(final) || [-1, 0].includes(getResult(archive.result)))
+            break;
+        }
+
+      } while (chess.undo() != null)
+
+      archive.final = final;
+    }
+
     //setHydratedArchives(filteredArchives);
 
     // Compute score at move 15
@@ -174,6 +202,7 @@ function App() {
       scoreAtMove15: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
       endTime: new Date(x.end_time * 1000),
       opening: x.opening,
+      final: getFinalName(x.final),
     })));
     setLoadingState(LoadingState.NotLoading);
   }, [hydratedArchives]);
@@ -327,10 +356,10 @@ function App() {
 
         <Openings archives={hydratedArchives}></Openings>
         <TimeManagement archives={hydratedArchives}></TimeManagement>
-        <EndGame archives={hydratedArchives}></EndGame>
+        <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
 
-        <div style={{ height: "100vh", width: "100%", maxWidth: 900, marginTop: 30 }}>
-          <GamesTable gridRow={gridRow}></GamesTable>
+        <div style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
+          <GamesTable gridRow={gridRow} filters={tableFilters}></GamesTable>
         </div>
       </div>
     </div >

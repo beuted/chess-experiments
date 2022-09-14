@@ -1,3 +1,5 @@
+import { Final } from "./EndGame";
+
 export type GameResultsCode = "win" |
   "checkmated" |
   "agreed" |
@@ -92,6 +94,8 @@ export type HydratedChessComArchive = ChessComArchive & {
   scoreOutOfOpening: number;
   whiteTimes: number[],
   blackTimes: number[],
+  final: Final,
+  winningFinal: Final,
 }
 
 export type TimeClass = "blitz" | "bullet" | "rapid"
