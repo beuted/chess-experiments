@@ -33,7 +33,8 @@ enum LoadingState {
   NotLoading = 0,
   FetchingGames = 1,
   ComputingStats = 2,
-  ErrorFetchingUser = 3
+  ErrorFetchingUser = 3,
+  ErrorNoGamesFound = 4,
 }
 
 ChartJS.register(CategoryScale,
@@ -85,6 +86,11 @@ function App() {
     // compute what archive we filter on
     var filteredArchives = archives.filter(x => x.time_class == "rapid") as HydratedChessComArchive[];
 
+    if (filteredArchives.length == 0) {
+      setLoadingState(LoadingState.ErrorNoGamesFound);
+      return;
+    }
+
     // opening stats
     for (var archive of filteredArchives) {
       // Remove description
@@ -129,7 +135,7 @@ function App() {
       archive.result = playerSide.result;
 
       if (!archive.opening) {
-        console.log("what is this opening " + archive.url);
+        console.error("what is this opening ?? " + archive.url);
         continue;
       }
     }
@@ -167,7 +173,7 @@ function App() {
     // Compute score at move 15
     (async () => {
       await sf.init((state: StockfishState) => {
-        console.log(state.scores.length + "/" + filteredArchives.length);
+        console.log("Computing score at move 15: " + state.scores.length + "/" + filteredArchives.length);
         // While we don't have computed everything into sf state don't use it
         if (filteredArchives.length !== state.scores.length)
           return;
@@ -347,6 +353,7 @@ function App() {
           </Button>
         </Grid>
         {loadingState == LoadingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
+        {loadingState == LoadingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
 
 
         {(!archives || archives.length == 0) ? <div>
