@@ -14,6 +14,10 @@ const Link = styled('a')({
   color: 'inherit',
 });
 
+function getLinkInnerHtml(link: string) {
+  return link.replace("https://lichess.org/", "lichess.org/").replace("https://www.chess.com/", "chess.com/")
+}
+
 export const DemoLink = React.memo(function DemoLink(props: DemoLinkProps) {
   return (
     <Link tabIndex={props.tabIndex} href={props.href} target="_blank">
@@ -29,7 +33,7 @@ export function renderLink(params: any) {
 
   return (
     <DemoLink href={params.value} tabIndex={params.tabIndex}>
-      {params.value.substring(12)}
+      {getLinkInnerHtml(params.value)}
     </DemoLink>
   );
 }

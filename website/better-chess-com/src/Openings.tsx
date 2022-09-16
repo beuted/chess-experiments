@@ -78,6 +78,9 @@ export function Openings(props: OpeningsProps) {
     let resultPerOpeningSimplifiedBlack: { [opening: string]: { win: number, lose: number, draw: number } } = {}
 
     for (var archive of props.archives) {
+      if (!archive.opening)
+        continue;
+
       // Set the results per opening dic
       const result = useEarlyAdvantageOverResult ? getAdvantage(archive.scoreOutOfOpening, archive.playingWhite) : getResult(archive.result);
       const openingSimplified = archive.opening.split(":")[0];

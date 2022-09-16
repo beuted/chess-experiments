@@ -28,6 +28,19 @@ export function EndGame(props: EndGameProps) {
     section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function setWinningFinalFilter(final: string | undefined): any {
+    if (!final)
+      return;
+
+    props.setTableFilters({
+      items: [{ columnField: 'winningFinal', operatorValue: 'contains', value: final }],
+    });
+
+    // Scroll to the table
+    const section = document.querySelector('#games-table');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   useEffect(() => {
     if (!props.archives || props.archives.length === 0)
       return;
@@ -104,7 +117,7 @@ export function EndGame(props: EndGameProps) {
                 className="filter-on-click"
                 key={x.datasets[0].label}
                 style={{ width: "180px", }}>
-                <Tooltip title="Filter below table on the draw and loss for this type of final that you were suppose to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                <Tooltip title="Filter below table on the draw and loss for this type of final that you were suppose to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setWinningFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
                 <Pie data={x} options={x.options} />
               </div>
             )}
