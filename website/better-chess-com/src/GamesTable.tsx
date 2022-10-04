@@ -7,7 +7,7 @@ export function GamesTable(props: GamesTableProps) {
   const columns: GridColDef[] = [
     { field: 'url', headerName: 'Link', width: 245, renderCell: renderLink },
     { field: 'color', headerName: 'Color', width: 60 },
-    { field: 'scoreAtMove15', headerName: 'Score at move 15', width: 60 },
+    { field: 'scoreAtMove10', headerName: 'Score at move 10', width: 60 },
     { field: 'final', headerName: 'Final type', width: 210 },
     { field: 'result', headerName: 'Result', width: 65 },
     { field: 'endTime', headerName: 'End Time', sortComparator: gridDateComparator, renderCell: params => params.value.toLocaleDateString(), width: 90 },

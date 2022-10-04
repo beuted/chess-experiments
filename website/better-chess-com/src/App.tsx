@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
   ArcElement,
+  BarElement,
 } from 'chart.js';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
@@ -21,27 +22,32 @@ import {
   GridFilterModel,
   GridRowsProp,
 } from '@mui/x-data-grid';
-import { Alert, Button, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Alert, Button, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
 import { TimeManagement } from './TimeManagement';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import { EndGame, Final, getFinal, getFinalName, getPiecesFromBoard, isWinningFinal } from './EndGame';
+import { Tactics } from './Tactics';
 
 
-enum LoadingState {
+enum ComputingState {
   NotLoading = 0,
   FetchingGames = 1,
   ComputingStats = 2,
   ErrorFetchingUser = 3,
   ErrorNoGamesFound = 4,
   StartDateMustBeBeforeEndDate = 5,
+  AnalysingGames = 6,
 }
+
+const LoadingStates = [ComputingState.FetchingGames, ComputingState.ComputingStats, ComputingState.AnalysingGames]
 
 ChartJS.register(CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   ArcElement,
   Tooltip,
@@ -49,7 +55,8 @@ ChartJS.register(CategoryScale,
 );
 
 function App() {
-  const sf = new StockfishService(9);
+  const sfDepth = 10;
+  const sf = new StockfishService(sfDepth);
 
   var chessAPI = new ChessWebAPI();
   const defaultData = {
@@ -87,7 +94,8 @@ function App() {
   const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
   const [gridRow, setGridRow] = useState<GridRowsProp>();
   const [tableFilters, setTableFilters] = useState<GridFilterModel>({ items: [] });
-  const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.NotLoading);
+  const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
 
 
   async function fetchStudy() {
@@ -134,11 +142,11 @@ function App() {
     }
 
     // compute what archive we filter on
-    var filteredArchives = archives.filter(x => x.time_class === gameType) as HydratedChessComArchive[];
+    var filteredArchives = archives.filter(x => x.time_class === gameType).splice(0, 5) as HydratedChessComArchive[];
 
     // No game were found after filtering
     if (filteredArchives.length == 0) {
-      setLoadingState(LoadingState.ErrorNoGamesFound);
+      setComputingState(ComputingState.ErrorNoGamesFound);
       return;
     }
 
@@ -167,6 +175,22 @@ function App() {
       cleanedPgn = cleanedPgn.replace(/[0-9]+\.\.\. /g, '');
 
       archive.cleanedPgn = cleanedPgn;
+      let cleanedPgn2 = cleanedPgn.split('.');
+      let doubleMoves = cleanedPgn2.map(x => x.slice(0, -2).trim()); // Remove last 2 chars for each moves
+      doubleMoves = doubleMoves.slice(1); // Remove first element that is empty
+      let lastMove = cleanedPgn2[cleanedPgn2.length - 1];
+      if (lastMove.includes("\n"))
+        lastMove = lastMove.substring(0, lastMove.length - 5).trim();
+
+      doubleMoves[doubleMoves.length - 1] = lastMove; // We don't want to remove chars to the last element
+
+      let moves: string[] = []
+      for (const doubleMove of doubleMoves) {
+        const moveArray = doubleMove.split(" ");
+        moves = moves.concat(moveArray);
+      }
+
+      archive.moves = moves;
 
       for (var opening of FullOpenings) {
         if (cleanedPgn.startsWith(opening.pgn)) {
@@ -223,33 +247,56 @@ function App() {
       archive.final = final;
     }
 
-    // Compute score at move 15
+    // Compute score at each move
+    setComputingState(ComputingState.AnalysingGames);
     (async () => {
-      await sf.init((state: StockfishState) => {
-        console.log("Computing score at move 15: " + state.scores.length + "/" + filteredArchives.length);
-        // While we don't have computed everything into sf state don't use it
-        if (filteredArchives.length !== state.scores.length)
-          return;
-
-        // Updat ethe hydrated archives
-        let i = 0;
-        for (var archive of filteredArchives) {
-          archive.scoreOutOfOpening = state.scores[i];
-          i++;
-        }
-        setHydratedArchives(filteredArchives);
-      });
-
+      await sf.setup();
+      let i = 0;
+      let start = performance.now();
       for (var archive of filteredArchives) {
-        // Load the score on move 15
-        let pgnMove15 = getPgnAtMove(archive.cleanedPgn, 15);
-        chess.load_pgn(pgnMove15);
-        const fen = chess.fen();
-        sf.computeFen(fen);
+        let scores = await computeScoreForArchive(archive);
+        archive.scores = scores;
+        archive.scoreOutOfOpening = scores.length > 20 ? scores[20] : scores[scores.length - 1];
+
+        setLoadingProgress(100 * i / filteredArchives.length)
+        i++;
       }
+      console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
+
+      setHydratedArchives(filteredArchives);
     })();
 
   }, [archives]);
+
+
+  async function computeScoreForArchive(archive: HydratedChessComArchive) {
+    return new Promise<number[]>(async (resolve) => {
+      const chess = new Chess();
+
+      await sf.init((state: StockfishState) => {
+        // While we don't have computed everything move sf state don't use it
+        if (state.scores.length !== archive.moves.length - 1 || state.scores.includes(undefined))
+          return;
+
+        var result = state.scores.map((x, i) => {
+          // If it's black turn then we need to invert the number
+          return (x as number) * ((i % 2 == 0) ? -1 : 1)
+        });
+
+        resolve(result);
+      });
+
+      for (let moveId = 1; moveId <= archive.moves.length; moveId++) {
+        let pgn = getPgnAtMove(archive.moves, moveId);
+        if (pgn == null)
+          break;
+
+        chess.load_pgn(pgn);
+        const fen = chess.fen();
+        sf.computeFen(fen);
+      }
+    });
+  }
 
   useEffect(() => {
     if (!hydratedArchives || hydratedArchives.length == 0) {
@@ -261,21 +308,21 @@ function App() {
       url: x.url,
       color: x.playingWhite ? 'white' : 'black',
       result: getResultAsString(x.result),
-      scoreAtMove15: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
+      scoreAtMove10: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
       endTime: new Date(x.end_time * 1000),
       opening: x.opening,
       final: getFinalName(x.final),
       winningFinal: getFinalName(x.winningFinal),
     })));
-    setLoadingState(LoadingState.NotLoading);
+    setComputingState(ComputingState.NotLoading);
   }, [hydratedArchives]);
 
   async function fetchGames() {
-    setLoadingState(LoadingState.FetchingGames);
+    setComputingState(ComputingState.FetchingGames);
     // Fetch player info
 
     if (startDate.getTime() > endDate.getTime()) {
-      setLoadingState(LoadingState.StartDateMustBeBeforeEndDate);
+      setComputingState(ComputingState.StartDateMustBeBeforeEndDate);
       return;
     }
 
@@ -289,7 +336,7 @@ function App() {
       try {
         responsePlayer = await chessAPI.getPlayer(userName);
       } catch {
-        setLoadingState(LoadingState.ErrorFetchingUser);
+        setComputingState(ComputingState.ErrorFetchingUser);
         return;
       }
       const userNameFixed = responsePlayer.body.url.slice(29); // Here we fix the potential capital cases that a username can have
@@ -314,7 +361,7 @@ function App() {
           m++;
         }
       }
-      setLoadingState(LoadingState.ComputingStats);
+      setComputingState(ComputingState.ComputingStats);
       setArchives(archiveTemp);
     } else if (platform == "lichess") {
       let startTime = startDate.getTime();
@@ -340,10 +387,10 @@ function App() {
       }
 
       if (archiveTemp.length == 0) {
-        setLoadingState(LoadingState.ErrorNoGamesFound);
+        setComputingState(ComputingState.ErrorNoGamesFound);
         return;
       }
-      setLoadingState(LoadingState.ComputingStats);
+      setComputingState(ComputingState.ComputingStats);
       setArchives(archiveTemp);
     }
   }
@@ -458,25 +505,30 @@ function App() {
               setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
             }}
           />
-          <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }} disabled={[LoadingState.FetchingGames, LoadingState.ComputingStats].includes(loadingState)}>
-            {[LoadingState.FetchingGames, LoadingState.ComputingStats].includes(loadingState) ? "Computing..." : "Compute"}
+          <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }} disabled={LoadingStates.includes(computingState)}>
+            {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>
         </Grid>
-        {loadingState == LoadingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
-        {loadingState == LoadingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
-        {loadingState == LoadingState.StartDateMustBeBeforeEndDate ? <Alert severity="warning">selected start date must come before end date</Alert> : null}
+        {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
+        {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
+        {computingState == ComputingState.StartDateMustBeBeforeEndDate ? <Alert severity="warning">selected start date must come before end date</Alert> : null}
 
+        {(!hydratedArchives || hydratedArchives.length == 0) ? <div>
+          {computingState == ComputingState.NotLoading ?
+            (<PsychologyIcon sx={{ fontSize: 120, mt: 5 }} />) :
+            (<CircularProgress variant="determinate" value={loadingProgress} size='25%' />)
+          }
 
-        {(!archives || archives.length == 0) ? <div>
-          <PsychologyIcon sx={{ fontSize: 120, mt: 5 }} />
-          {loadingState == LoadingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
-          {loadingState == LoadingState.FetchingGames ? <p>Fetching games</p> : null}
-          {loadingState == LoadingState.ComputingStats ? <p>Computing statistics...</p> : null}
+          {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
+          {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
+          {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
+          {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.filter(x => x.time_class === gameType).length} games with stockfish depth {sfDepth}</p> : null}
         </div> : null}
 
         <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>
         <TimeManagement archives={hydratedArchives}></TimeManagement>
         <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
+        <Tactics archives={hydratedArchives} setTableFilters={setTableFilters}></Tactics>
 
         <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
           <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>

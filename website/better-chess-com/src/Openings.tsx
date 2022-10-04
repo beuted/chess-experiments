@@ -15,7 +15,7 @@ export function Openings(props: OpeningsProps) {
   const [openingDetailsVariant, setOpeningDetailsVariant] = useState<string | null>(null);
   const [showMore, setShowMore] = useState<boolean>(false);
   const [showMoreDetailed, setShowMoreDetailed] = useState<boolean>(false)
-  const [useEarlyAdvantageOverResult, setUseEarlyAdvantageOverResult] = useState<boolean>(false);
+  const [useEarlyAdvantageOverResult, setUseEarlyAdvantageOverResult] = useState<boolean>(true);
 
   const [openingResultPiesWhite, setOpeningResultPiesWhite] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
   const [openingResultPiesWhiteAll, setOpeningResultPiesWhiteAll] = useState<(ChartData<"pie", number[], unknown> & { options: any })>();
@@ -64,7 +64,6 @@ export function Openings(props: OpeningsProps) {
 
   function getAdvantage(scoreOutOfOpening: number, playingWhite: boolean) {
     var scoreOutOfOpeningCorrected = scoreOutOfOpening * (playingWhite ? 1 : -1);
-    console.log(scoreOutOfOpeningCorrected);
     return scoreOutOfOpeningCorrected < -150 ? -1 : (scoreOutOfOpeningCorrected > 150 ? 1 : 0)
   }
 
@@ -182,8 +181,8 @@ export function Openings(props: OpeningsProps) {
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Openings</h2>
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Use result of the game" : "Use advantage out of opening (move 15)"}
-          <Tooltip title="Advantage is computed at move 15. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Result of the game" : "Advantage out of opening (move 10)"}
+          <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
         </Button>
         <Grid container className="openings">
           <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
@@ -205,7 +204,7 @@ export function Openings(props: OpeningsProps) {
           {(openingOpenWhite || openingOpenBlack) ? (<h3>Main variants</h3>) : null}
           {openingOpenWhite ? (<div>
             <Grid container className="opening-container">
-              {openingResultPiesWhite.slice(0, showMore ? openingResultPiesBlack.length : 5).map(x =>
+              {openingResultPiesWhite.slice(0, showMore ? openingResultPiesWhite.length : 5).map(x =>
                 <div
                   key={x.datasets[0].label}
                   className={"filter-on-click clickable " + (openingDetailsVariant == x.datasets[0].label || !openingDetailsVariant ? "selected" : "")}

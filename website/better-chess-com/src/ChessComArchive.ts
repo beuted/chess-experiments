@@ -129,15 +129,14 @@ export function getResultAsString(code: GameResultsCode) {
   }
 }
 
-export function getPgnAtMove(cleanedPgn: string, move: number) {
-  // Load the score on move 15
-  var pgnArray = cleanedPgn.split('.');
-  let pgnMove15 = null;
-  if (pgnArray.length <= 10)
-    pgnMove15 = cleanedPgn;
-  else
-    pgnMove15 = pgnArray.slice(0, 10).join(".").slice(0, -3);
-  return pgnMove15;
+export function getPgnAtMove(moves: string[], moveNumber: number) {
+  // Load the score on move 10
+  if (moves.length < moveNumber)
+    return null;
+  else {
+    let movesAtX = moves.slice(0, moveNumber);
+    return movesAtX.join(" ");
+  }
 }
 
 export type HydratedChessComArchive = ChessComArchive & {
@@ -147,10 +146,12 @@ export type HydratedChessComArchive = ChessComArchive & {
   eco: string
   cleanedPgn: string;
   scoreOutOfOpening: number;
+  scores: number[];
+  moves: string[];
   whiteTimes: number[],
   blackTimes: number[],
   final: Final,
-  winningFinal: Final,
+  winningFinal: Final
 }
 
 export type TimeClass = "blitz" | "bullet" | "rapid"
