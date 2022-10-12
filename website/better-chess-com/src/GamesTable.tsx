@@ -13,6 +13,12 @@ export function GamesTable(props: GamesTableProps) {
     { field: 'endTime', headerName: 'End Time', sortComparator: gridDateComparator, renderCell: params => params.value.toLocaleDateString(), width: 90 },
     { field: 'opening', headerName: 'Opening', flex: 1 },
     { field: 'winningFinal', headerName: 'Winning Final', width: 210, hide: true },
+    { field: 'mistakesPlayer', headerName: 'Mistakes Player', flex: 1, hide: true },
+    { field: 'missedGainsPlayer', headerName: 'Missed Gains Player', flex: 1, hide: true },
+    { field: 'goodMovesPlayer', headerName: 'Good Moves Player', flex: 1, hide: true },
+    { field: 'mistakesOpponent', headerName: 'Mistakes Opponent', flex: 1, hide: true },
+    { field: 'missedGainsOpponent', headerName: 'Missed Gains Opponent', flex: 1, hide: true },
+    { field: 'goodMovesOpponent', headerName: 'Good Moves Opponent', flex: 1, hide: true },
   ];
 
   const onFilterModelChange = (newFilters: GridFilterModel) => {

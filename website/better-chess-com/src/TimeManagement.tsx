@@ -71,6 +71,9 @@ export function TimeManagement(props: TimeManagementProps) {
           title: {
             display: true,
             text: "Time management"
+          },
+          datalabels: {
+            display: false
           }
         },
         elements: {

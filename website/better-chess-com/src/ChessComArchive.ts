@@ -151,7 +151,13 @@ export type HydratedChessComArchive = ChessComArchive & {
   whiteTimes: number[],
   blackTimes: number[],
   final: Final,
-  winningFinal: Final
+  winningFinal: Final,
+  mistakesPlayer: number[];
+  missedGainPlayer: number[];
+  goodMovePlayer: number[];
+  mistakesOpponent: number[];
+  missedGainOpponent: number[];
+  goodMoveOpponent: number[];
 }
 
 export type TimeClass = "blitz" | "bullet" | "rapid"

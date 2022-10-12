@@ -12,8 +12,8 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 type EndGameProps = { archives: HydratedChessComArchive[] | undefined, setTableFilters: (filters: GridFilterModel) => void }
 
 export function EndGame(props: EndGameProps) {
-  const [wonOpenningDataChart, setWonOpenningDataChart] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
-  const [otherOpenningDataChart, setOtherOpenningDataChart] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [wonOpeningDataChart, setWonOpeningDataChart] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
+  const [otherOpeningDataChart, setOtherOpeningDataChart] = useState<(ChartData<"pie", number[], unknown> & { options: any })[]>([]);
 
   function setFinalFilter(final: string | undefined): any {
     if (!final)
@@ -47,7 +47,7 @@ export function EndGame(props: EndGameProps) {
 
 
     // Winning finals
-    let wonOpenningDataChart = [];
+    let wonOpeningDataChart = [];
 
     let winningFinalResults: { [key: number]: { win: number, lose: number, draw: number } } = {};
     for (let archive of props.archives) {
@@ -70,11 +70,11 @@ export function EndGame(props: EndGameProps) {
 
     for (var kvp of Object.entries(winningFinalResults)) {
       const openingResultData = getPieData(getFinalName(Number(kvp[0]) as Final), kvp[1].win, kvp[1].draw, kvp[1].lose, '#F2B14F');
-      wonOpenningDataChart.push(openingResultData);
+      wonOpeningDataChart.push(openingResultData);
     }
 
     // Other finals
-    let otherOpenningDataChart = [];
+    let otherOpeningDataChart = [];
     let otherFinalResults: { [key: number]: { win: number, lose: number, draw: number } } = {};
 
     for (let archive of props.archives) {
@@ -97,22 +97,22 @@ export function EndGame(props: EndGameProps) {
 
     for (var kvp of Object.entries(otherFinalResults)) {
       const openingResultData = getPieData(getFinalName(Number(kvp[0]) as Final), kvp[1].win, kvp[1].draw, kvp[1].lose, "#DEDEDE");
-      otherOpenningDataChart.push(openingResultData);
+      otherOpeningDataChart.push(openingResultData);
     }
 
 
-    setWonOpenningDataChart(wonOpenningDataChart);
-    setOtherOpenningDataChart(otherOpenningDataChart);
+    setWonOpeningDataChart(wonOpeningDataChart);
+    setOtherOpeningDataChart(otherOpeningDataChart);
   }, [props.archives]);
 
   return (
     props.archives && props.archives.length > 0 ?
-      <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200 }}>
+      <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">End Game</h2>
         <div>
           <h3>Winning finals <Tooltip title="These are finals that you were suppose to win" arrow><InfoIcon></InfoIcon></Tooltip></h3>
           <Grid container className="end-games-container">
-            {wonOpenningDataChart.map(x =>
+            {wonOpeningDataChart.map(x =>
               <div
                 className="filter-on-click"
                 key={x.datasets[0].label}
@@ -124,7 +124,7 @@ export function EndGame(props: EndGameProps) {
           </Grid>
           <h3>Standard finals <Tooltip title="These are standard finals that could have gone either way" arrow><InfoIcon></InfoIcon></Tooltip></h3>
           <Grid container className="end-games-container">
-            {otherOpenningDataChart.map(x =>
+            {otherOpeningDataChart.map(x =>
               <div
                 className="filter-on-click"
                 key={x.datasets[0].label}
@@ -289,6 +289,9 @@ function getPieData(label: string, win: number, draw: number, lose: number, draw
         title: {
           display: true,
           text: label
+        },
+        datalabels: {
+          display: false,
         }
       },
       elements: {

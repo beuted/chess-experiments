@@ -51,6 +51,9 @@ export function Openings(props: OpeningsProps) {
           title: {
             display: true,
             text: label
+          },
+          datalabels: {
+            display: false
           }
         },
         elements: {

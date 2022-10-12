@@ -14,6 +14,7 @@ import {
   ArcElement,
   BarElement,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
 import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
@@ -22,13 +23,19 @@ import {
   GridFilterModel,
   GridRowsProp,
 } from '@mui/x-data-grid';
-import { Alert, Button, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Container, FormControl, Grid, IconButton, InputLabel, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
 import { TimeManagement } from './TimeManagement';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import ShutterSpeedOutlinedIcon from '@mui/icons-material/ShutterSpeedOutlined';
 import { EndGame, Final, getFinal, getFinalName, getPiecesFromBoard, isWinningFinal } from './EndGame';
 import { Tactics } from './Tactics';
+import { positions } from '@mui/system';
+import { Advantage } from './Advantage';
 
 
 enum ComputingState {
@@ -52,10 +59,12 @@ ChartJS.register(CategoryScale,
   ArcElement,
   Tooltip,
   Legend,
+  ChartDataLabels
 );
 
 function App() {
   const sfDepth = 10;
+  const algoVersion = 1;
   const sf = new StockfishService(sfDepth);
 
   var chessAPI = new ChessWebAPI();
@@ -96,7 +105,48 @@ function App() {
   const [tableFilters, setTableFilters] = useState<GridFilterModel>({ items: [] });
   const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
+  const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number, algoVersion: number } }>({});
 
+  function getGameTypeIcon(gameType: string) {
+    switch (gameType) {
+      case 'rapid':
+        return (<TimerOutlinedIcon />);
+      case 'blitz':
+        return (<FlashOnIcon />);
+      case 'bullet':
+        return (<ShutterSpeedOutlinedIcon />);
+      default:
+        return (<TimerOutlinedIcon />);
+    }
+  }
+
+  function deleteMonth(monthAndType: string) {
+    let monthsString = localStorage.getItem('months');
+    let months: string[] = monthsString ? JSON.parse(monthsString) : [];
+    let updatedMonths = Array.from(months);
+
+    let monthGamesString = localStorage.getItem(monthAndType);
+    let monthGames: { games: HydratedChessComArchive[], sfDepth: number, algoVersion: number } = monthGamesString ? JSON.parse(monthGamesString) : {};
+
+    // Clean cache
+    localStorage.removeItem(monthAndType);
+    let index = updatedMonths.indexOf(monthAndType);
+    if (index > -1) {
+      updatedMonths.splice(index, 1);
+      localStorage.setItem('months', JSON.stringify(updatedMonths));
+    }
+    delete monthsInfo[monthAndType];
+    setMonthsInfo(Object.assign({}, monthsInfo));
+
+    // Clean local games
+    for (const game of monthGames.games) {
+      let index = hydratedArchives!.findIndex(x => x.url == game.url);
+      if (index != -1)
+        hydratedArchives!.splice(index, 1);
+    }
+
+    setHydratedArchives(Array.from(hydratedArchives!));
+  }
 
   async function fetchStudy() {
     const chess = new Chess();
@@ -133,6 +183,36 @@ function App() {
   }
 
   useEffect(() => {
+    // Read cache logic
+    let monthsString = localStorage.getItem('months');
+    let months: string[] = monthsString ? JSON.parse(monthsString) : [];
+    let updatedMonths = Array.from(months);
+    let hydratedArchives: HydratedChessComArchive[] = [];
+    let monthInfo: { [month: string]: { nbGames: number, sfDepth: number, algoVersion: number } } = {};
+
+    for (let monthAndType of months) {
+      let monthGamesString = localStorage.getItem(monthAndType);
+      let monthGames: { games: HydratedChessComArchive[], sfDepth: number, algoVersion: number } = monthGamesString ? JSON.parse(monthGamesString) : {};
+      if (monthGames.algoVersion < algoVersion) {
+        // Clean the month that is not up to date
+        localStorage.removeItem(monthAndType);
+        let index = updatedMonths.indexOf(monthAndType);
+        if (index > -1) {
+          updatedMonths.splice(index, 1);
+          localStorage.setItem('months', JSON.stringify(updatedMonths));
+        }
+        continue;
+      }
+      monthInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth, algoVersion: monthGames.algoVersion }
+      hydratedArchives = hydratedArchives.concat(monthGames.games);
+    }
+    localStorage.setItem('months', JSON.stringify(updatedMonths));
+
+    setMonthsInfo(monthInfo);
+    setHydratedArchives(hydratedArchives);
+  }, []);
+
+  useEffect(() => {
     //fetchStudy();
 
     const chess = new Chess();
@@ -142,7 +222,7 @@ function App() {
     }
 
     // compute what archive we filter on
-    var filteredArchives = archives.filter(x => x.time_class === gameType).splice(0, 5) as HydratedChessComArchive[];
+    var filteredArchives = archives as HydratedChessComArchive[];
 
     // No game were found after filtering
     if (filteredArchives.length == 0) {
@@ -253,7 +333,7 @@ function App() {
       await sf.setup();
       let i = 0;
       let start = performance.now();
-      for (var archive of filteredArchives) {
+      for (let archive of filteredArchives) {
         let scores = await computeScoreForArchive(archive);
         archive.scores = scores;
         archive.scoreOutOfOpening = scores.length > 20 ? scores[20] : scores[scores.length - 1];
@@ -262,6 +342,116 @@ function App() {
         i++;
       }
       console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
+
+      // Computaing mistakes and missed gains
+      for (let archive of filteredArchives) {
+        // TODO check if mate created and score was "not so bad"
+        // Maybe check if we need to remove mistakes that happened when the score was already bad
+        let mistakesPlayer: number[] = [];
+        let missedGainPlayer: number[] = [];
+        let goodMovePlayer: number[] = [];
+        let mistakesOpponent: number[] = [];
+        let missedGainOpponent: number[] = [];
+        let goodMoveOpponent: number[] = [];
+
+        let prevScore = archive.scores[0];
+
+        let i = 1;
+        for (let score of archive.scores) {
+          let whiteToPlay = i % 2 == 1;
+          if (score - prevScore > 360) {
+            if (archive.playingWhite) {
+              if (whiteToPlay) {
+                goodMovePlayer.push(i);
+              } else {
+                if (mistakesPlayer.includes(i - 1)) {
+                  missedGainOpponent.push(i);
+                } else {
+                  mistakesOpponent.push(i);
+                }
+              }
+            } else {
+              if (whiteToPlay) {
+                goodMoveOpponent.push(i);
+              } else {
+                if (mistakesOpponent.includes(i - 1)) {
+                  missedGainPlayer.push(i);
+                } else {
+                  mistakesPlayer.push(i);
+                }
+              }
+            }
+          } else if (score - prevScore < -360) {
+            if (archive.playingWhite) {
+              if (whiteToPlay) {
+                if (mistakesOpponent.includes(i - 1)) {
+                  missedGainPlayer.push(i);
+                } else {
+                  mistakesPlayer.push(i);
+
+                }
+              } else {
+                goodMoveOpponent.push(i);
+              }
+            } else {
+              if (whiteToPlay) {
+                if (mistakesPlayer.includes(i - 1)) {
+                  missedGainOpponent.push(i);
+                } else {
+                  mistakesOpponent.push(i);
+                }
+              } else {
+                goodMovePlayer.push(i);
+              }
+            }
+          }
+          prevScore = score;
+          i++;
+        }
+
+        archive.mistakesPlayer = mistakesPlayer;
+        archive.missedGainPlayer = missedGainPlayer;
+        archive.goodMovePlayer = goodMovePlayer;
+        archive.mistakesOpponent = mistakesOpponent;
+        archive.missedGainOpponent = missedGainOpponent;
+        archive.goodMoveOpponent = goodMoveOpponent;
+      }
+
+      // Caching logic
+      const monthsInfoString = window.localStorage.getItem("months");
+      let months: string[] = monthsInfoString ? JSON.parse(monthsInfoString) : [];
+      let localCache: { [key: string]: { games: HydratedChessComArchive[], sfDepth: number, algoVersion: number } } = {};
+
+      for (let monthAndType of months) {
+        let monthGames = window.localStorage.getItem(monthAndType);
+        localCache[monthAndType] = monthGames ? JSON.parse(monthGames) : ({ games: [], sfDepth: 0, algoVersion: 0 });
+      }
+
+      for (const archive of filteredArchives) {
+        let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "-" + gameType + "-" + userName;
+        if (!localCache[monthAndType] || localCache[monthAndType].sfDepth < sfDepth || localCache[monthAndType].algoVersion != algoVersion) {
+          localCache[monthAndType] = { games: [], sfDepth: sfDepth, algoVersion: algoVersion };
+        }
+        if (!months.includes(monthAndType)) {
+          months.push(monthAndType);
+        }
+        // Avoid duplicates
+        if (!localCache[monthAndType].games.find(x => x.url === archive.url)) {
+          localCache[monthAndType].games.push(archive);
+        }
+      }
+
+      window.localStorage.setItem("months", JSON.stringify(months));
+
+      for (const entry of Object.entries(localCache)) {
+        window.localStorage.setItem(entry[0], JSON.stringify(entry[1]));
+      }
+
+      let monthsInfo: { [key: string]: { nbGames: number, sfDepth: number, algoVersion: number } } = {};
+      for (let month of Object.keys(localCache)) {
+        monthsInfo[month] = { nbGames: localCache[month].games.length, sfDepth: localCache[month].sfDepth, algoVersion: localCache[month].algoVersion };
+      }
+      setMonthsInfo(monthsInfo);
 
       setHydratedArchives(filteredArchives);
     })();
@@ -275,7 +465,7 @@ function App() {
 
       await sf.init((state: StockfishState) => {
         // While we don't have computed everything move sf state don't use it
-        if (state.scores.length !== archive.moves.length - 1 || state.scores.includes(undefined))
+        if (state.scores.length < archive.moves.length || state.scores.includes(undefined))
           return;
 
         var result = state.scores.map((x, i) => {
@@ -313,6 +503,12 @@ function App() {
       opening: x.opening,
       final: getFinalName(x.final),
       winningFinal: getFinalName(x.winningFinal),
+      mistakesPlayer: x.mistakesPlayer.join(", "),
+      missedGainsPlayer: x.missedGainPlayer.join(", "),
+      goodMovesPlayer: x.goodMovePlayer.join(", "),
+      mistakesOpponent: x.mistakesOpponent.join(", "),
+      missedGainsOpponent: x.missedGainOpponent.join(", "),
+      goodMovesOpponent: x.goodMoveOpponent.join(", "),
     })));
     setComputingState(ComputingState.NotLoading);
   }, [hydratedArchives]);
@@ -385,6 +581,10 @@ function App() {
         if (lichessArchive.variant == "standard" && !!lichessArchive.moves)
           archiveTemp.push(fromLichessToChessComArchive(lichessArchive));
       }
+
+      // Fitler based of game type
+      archiveTemp = archiveTemp.filter(x => x.time_class === gameType);
+      console.log(archiveTemp);
 
       if (archiveTemp.length == 0) {
         setComputingState(ComputingState.ErrorNoGamesFound);
@@ -505,9 +705,10 @@ function App() {
               setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
             }}
           />
-          <Button variant="contained" onClick={fetchGames} sx={{ m: 1 }} disabled={LoadingStates.includes(computingState)}>
+          <Button variant="contained" onClick={fetchGames} sx={{ mt: 1.1, mr: 1, ml: 1 }} disabled={LoadingStates.includes(computingState) || !userName}>
             {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>
+          {(computingState != ComputingState.NotLoading && hydratedArchives && hydratedArchives?.length > 0) ? <CircularProgress style={{ position: "absolute", marginTop: "8px" }} variant="determinate" value={loadingProgress} size='35px' /> : null}
         </Grid>
         {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
         {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
@@ -522,20 +723,37 @@ function App() {
           {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
           {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
           {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
-          {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.filter(x => x.time_class === gameType).length} games with stockfish depth {sfDepth}</p> : null}
-        </div> : null}
+          {computingState == ComputingState.AnalysingGames ? <p>Analysing {hydratedArchives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
+        </div> : <>
+          <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
+            {Object.entries(monthsInfo).map(([month, info]) => (
+              <ListItem className="hoverGray" key={month} secondaryAction={
+                <IconButton edge="end" aria-label="delete" onClick={() => deleteMonth(month)}>
+                  <DeleteIcon />
+                </IconButton>
+              }>
+                <ListItemIcon>
+                  {getGameTypeIcon(month.split('-')[2])}
+                </ListItemIcon>
+                <ListItemText primary={`${month} - ${info.nbGames} games - Stockfish nnue depth ${info.sfDepth}`}
+                  secondary={'Completed - 100%'} />
+              </ListItem>))}
+          </List>
+          <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>
+          <TimeManagement archives={hydratedArchives}></TimeManagement>
+          <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
+          <Tactics archives={hydratedArchives}></Tactics>
+          <Advantage archives={hydratedArchives}></Advantage>
 
-        <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>
-        <TimeManagement archives={hydratedArchives}></TimeManagement>
-        <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
-        <Tactics archives={hydratedArchives} setTableFilters={setTableFilters}></Tactics>
-
-        <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
-          <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>
-        </div>
+          <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
+            <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>
+          </div>
+        </>}
       </div>
     </div >
   );
 }
+
+
 
 export default App;
