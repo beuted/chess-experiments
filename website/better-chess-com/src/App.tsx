@@ -23,7 +23,7 @@ import {
   GridFilterModel,
   GridRowsProp,
 } from '@mui/x-data-grid';
-import { Alert, Box, Button, CircularProgress, Container, FormControl, Grid, IconButton, InputLabel, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Container, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import { GamesTable } from './GamesTable';
 import { Openings } from './Openings';
 import { TimeManagement } from './TimeManagement';
@@ -219,8 +219,6 @@ function App() {
 
   useEffect(() => {
     //fetchStudy();
-    console.log("hydratedArchives remaning in cache 1", hydratedArchives);
-
     const chess = new Chess();
     // Page just loaded
     if (!archives) {
@@ -427,7 +425,6 @@ function App() {
       }
 
       // Add the previous games to the list of hydratedArchives // TODO could be more opti
-      console.log("hydratedArchives remaning in cache", hydratedArchives);
       if (hydratedArchives) {
         const hydratedArchivesFiltered = hydratedArchives.filter(a => filteredArchives.findIndex(h => h.url == a.url) == -1); // Remove the games that have been updated before the new sfDepth is greater
         filteredArchives = filteredArchives.concat(hydratedArchivesFiltered);
@@ -438,7 +435,6 @@ function App() {
       setMonthsInfo(monthInfo);
 
       setHydratedArchives(filteredArchives);
-      console.log("filteredArchives final", filteredArchives);
     })();
 
   }, [archives]);
@@ -578,7 +574,6 @@ function App() {
 
     // Filter out games that have already been computed
     let localCache = getLocalCache(userName);
-    console.log(archiveTemp)
     archiveTemp = archiveTemp.filter(archive => {
       let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "%" + gameType + "%" + userName;
       if (!localCache[monthAndType] || localCache[monthAndType].sfDepth < sfDepth) {
@@ -586,7 +581,6 @@ function App() {
       }
       return !localCache[monthAndType].games.find(x => x.url === archive.url);
     });
-    console.log("filtered", archiveTemp)
 
     setComputingState(ComputingState.ComputingStats);
     setArchives(archiveTemp);
@@ -630,6 +624,10 @@ function App() {
 
           <Chessboard position={board.fen()} onPieceDrop={onDrop} />
         </div>}
+
+        {(computingState != ComputingState.NotLoading) ?
+          <LinearProgress style={{ width: "100%" }} variant="determinate" value={loadingProgress} />
+          : null}
 
         <Grid sx={{ m: 1 }}>
           <TextField label="Username"
@@ -717,18 +715,12 @@ function App() {
           <Button variant="contained" onClick={fetchGames} sx={{ mt: 1.1, mr: 1, ml: 1 }} disabled={LoadingStates.includes(computingState) || !userName || sfDepth <= 0 || sfDepth > 18}>
             {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>
-          {(computingState != ComputingState.NotLoading && hydratedArchives && hydratedArchives?.length > 0) ? <CircularProgress style={{ position: "absolute", marginTop: "8px" }} variant="determinate" value={loadingProgress} size='35px' /> : null}
         </Grid>
         {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
         {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
         {computingState == ComputingState.StartDateMustBeBeforeEndDate ? <Alert severity="warning">selected start date must come before end date</Alert> : null}
 
         {(!hydratedArchives || hydratedArchives.length == 0) ? <div>
-          {computingState == ComputingState.NotLoading ?
-            (<PsychologyIcon sx={{ fontSize: 120, mt: 5 }} />) :
-            (<CircularProgress variant="determinate" value={loadingProgress} size='25%' />)
-          }
-
           {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
           {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
           {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}

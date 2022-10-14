@@ -146,11 +146,6 @@ export function Advantage(props: AdvantageProps) {
         opponentMinus1point5Total += 1;
       }
     }
-    console.log(
-      opponentMinus1point5Win,
-      opponentMinus1point5Total,
-      props.archives.length
-    );
 
     let mistakesBarChart = getBarData("Conversion",
       { plus1point5: plus1point5Win / plus1point5Total, plus3: plus3Win / plus3Total, plus5: plus5Win / plus5Total, plus7: plus7Win / plus7Total },
