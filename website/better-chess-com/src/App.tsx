@@ -17,7 +17,7 @@ import {
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
-import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, getResult, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
+import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
 import {
   GridFilterModel,
@@ -34,7 +34,6 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import ShutterSpeedOutlinedIcon from '@mui/icons-material/ShutterSpeedOutlined';
 import { EndGame, Final, getFinal, getFinalName, getPiecesFromBoard, isWinningFinal } from './EndGame';
 import { Tactics } from './Tactics';
-import { positions } from '@mui/system';
 import { Advantage } from './Advantage';
 
 
@@ -63,9 +62,7 @@ ChartJS.register(CategoryScale,
 );
 
 function App() {
-  const sfDepth = 10;
-  const algoVersion = 1;
-  const sf = new StockfishService(sfDepth);
+  const algoVersion = 2;
 
   var chessAPI = new ChessWebAPI();
   const defaultData = {
@@ -81,7 +78,7 @@ function App() {
   };
 
   var startDateDefault = new Date();
-  startDateDefault.setMonth(startDateDefault.getMonth() - 3);
+  startDateDefault.setMonth(startDateDefault.getMonth() - 1);
 
 
   let storedGameType = localStorage.getItem('gameType') || 'rapid';
@@ -92,6 +89,9 @@ function App() {
 
   let storedUserName = localStorage.getItem('userName') || '';
   const [userName, setUserName] = useState<string>(storedUserName);
+
+  let storedSfDepth = localStorage.getItem('sfDepth') || '10';
+  const [sfDepth, setSfDepth] = useState<number>(Number(storedSfDepth));
 
   const [startDate, setStartDate] = useState<Date>(startDateDefault);
   const [endDate, setEndDate] = useState<Date>(new Date());
@@ -105,7 +105,7 @@ function App() {
   const [tableFilters, setTableFilters] = useState<GridFilterModel>({ items: [] });
   const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
-  const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number, algoVersion: number } }>({});
+  const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number } }>({});
 
   function getGameTypeIcon(gameType: string) {
     switch (gameType) {
@@ -119,6 +119,59 @@ function App() {
         return (<TimerOutlinedIcon />);
     }
   }
+
+  function getLocalCache(userName?: string): { [key: string]: { games: HydratedChessComArchive[], sfDepth: number } } {
+    const monthsInfoString = window.localStorage.getItem("months");
+    let months: string[] = monthsInfoString ? JSON.parse(monthsInfoString) : [];
+    let localCache: { [key: string]: { games: HydratedChessComArchive[], sfDepth: number } } = {};
+
+    for (let monthAndType of months) {
+      // We clear the previous games from another username
+      const monthAndTypeSplitArray = monthAndType.split("%");
+      const monthUsername = monthAndTypeSplitArray[monthAndTypeSplitArray.length - 1];
+      if (userName && monthUsername != userName)
+        continue;
+
+      let monthGames = window.localStorage.getItem(monthAndType);
+      localCache[monthAndType] = monthGames ? JSON.parse(monthGames) : ({ games: [], sfDepth: 0 });
+    }
+
+    return localCache;
+  }
+
+  function setLocalCache(filteredArchives: HydratedChessComArchive[]): { [key: string]: { nbGames: number, sfDepth: number } } {
+    let localCache: { [key: string]: { games: HydratedChessComArchive[], sfDepth: number } } = {};
+    let months: string[] = [];
+    for (const archive of filteredArchives) {
+      let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "%" + gameType + "%" + userName;
+      if (!localCache[monthAndType]) {
+        localCache[monthAndType] = { games: [], sfDepth: 99 };
+      }
+
+      if (!months.includes(monthAndType)) {
+        months.push(monthAndType);
+      }
+
+      localCache[monthAndType].games.push(archive);
+      if (localCache[monthAndType].sfDepth > archive.sfDepth)
+        localCache[monthAndType].sfDepth = archive.sfDepth
+    }
+
+    localStorage.setItem("months", JSON.stringify(months));
+
+    for (const entry of Object.entries(localCache)) {
+      localStorage.setItem(entry[0], JSON.stringify(entry[1]));
+    }
+
+    let monthsInfo: { [key: string]: { nbGames: number, sfDepth: number } } = {};
+    for (let month of Object.keys(localCache)) {
+      monthsInfo[month] = { nbGames: localCache[month].games.length, sfDepth: localCache[month].sfDepth };
+    }
+
+    return monthsInfo;
+  }
+
+  const sf = new StockfishService(sfDepth);
 
   function deleteMonth(monthAndType: string) {
     let monthsString = localStorage.getItem('months');
@@ -183,30 +236,32 @@ function App() {
   }
 
   useEffect(() => {
-    // Read cache logic
+    // Read cache logic when loading the page
+    let algoVersionStorage = localStorage.getItem('algoVersion');
     let monthsString = localStorage.getItem('months');
     let months: string[] = monthsString ? JSON.parse(monthsString) : [];
-    let updatedMonths = Array.from(months);
     let hydratedArchives: HydratedChessComArchive[] = [];
-    let monthInfo: { [month: string]: { nbGames: number, sfDepth: number, algoVersion: number } } = {};
+    let monthInfo: { [month: string]: { nbGames: number, sfDepth: number } } = {};
 
+    // If the algo version has changed clean all the cache
+    if (algoVersionStorage && Number(algoVersionStorage) != algoVersion) {
+      for (let monthAndType of months) {
+        localStorage.removeItem(monthAndType);
+      }
+      localStorage.removeItem('months');
+      months = [];
+    }
+
+    // Se the algo version to its hardcoded value in the store
+    localStorage.setItem('algoVersion', String(algoVersion));
+
+    // Fill hydratedArchives and monthInfo
     for (let monthAndType of months) {
       let monthGamesString = localStorage.getItem(monthAndType);
-      let monthGames: { games: HydratedChessComArchive[], sfDepth: number, algoVersion: number } = monthGamesString ? JSON.parse(monthGamesString) : {};
-      if (monthGames.algoVersion < algoVersion) {
-        // Clean the month that is not up to date
-        localStorage.removeItem(monthAndType);
-        let index = updatedMonths.indexOf(monthAndType);
-        if (index > -1) {
-          updatedMonths.splice(index, 1);
-          localStorage.setItem('months', JSON.stringify(updatedMonths));
-        }
-        continue;
-      }
-      monthInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth, algoVersion: monthGames.algoVersion }
+      let monthGames: { games: HydratedChessComArchive[], sfDepth: number } = monthGamesString ? JSON.parse(monthGamesString) : {};
+      monthInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth }
       hydratedArchives = hydratedArchives.concat(monthGames.games);
     }
-    localStorage.setItem('months', JSON.stringify(updatedMonths));
 
     setMonthsInfo(monthInfo);
     setHydratedArchives(hydratedArchives);
@@ -214,6 +269,7 @@ function App() {
 
   useEffect(() => {
     //fetchStudy();
+    console.log("hydratedArchives remaning in cache 1", hydratedArchives);
 
     const chess = new Chess();
     // Page just loaded
@@ -226,7 +282,7 @@ function App() {
 
     // No game were found after filtering
     if (filteredArchives.length == 0) {
-      setComputingState(ComputingState.ErrorNoGamesFound);
+      setComputingState(ComputingState.NotLoading);
       return;
     }
 
@@ -329,6 +385,7 @@ function App() {
 
     // Compute score at each move
     setComputingState(ComputingState.AnalysingGames);
+
     (async () => {
       await sf.setup();
       let i = 0;
@@ -337,10 +394,12 @@ function App() {
         let scores = await computeScoreForArchive(archive);
         archive.scores = scores;
         archive.scoreOutOfOpening = scores.length > 20 ? scores[20] : scores[scores.length - 1];
+        archive.sfDepth = sfDepth;
 
-        setLoadingProgress(100 * i / filteredArchives.length)
+        setLoadingProgress(100 * i / filteredArchives.length);
         i++;
       }
+      setLoadingProgress(0);
       console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
 
       // Computaing mistakes and missed gains
@@ -417,43 +476,19 @@ function App() {
         archive.goodMoveOpponent = goodMoveOpponent;
       }
 
+      // Add the previous games to the list of hydratedArchives // TODO could be more opti
+      console.log("hydratedArchives remaning in cache", hydratedArchives);
+      if (hydratedArchives) {
+        const hydratedArchivesFiltered = hydratedArchives.filter(a => filteredArchives.findIndex(h => h.url == a.url) == -1); // Remove the games that have been updated before the new sfDepth is greater
+        filteredArchives = filteredArchives.concat(hydratedArchivesFiltered);
+      }
+
       // Caching logic
-      const monthsInfoString = window.localStorage.getItem("months");
-      let months: string[] = monthsInfoString ? JSON.parse(monthsInfoString) : [];
-      let localCache: { [key: string]: { games: HydratedChessComArchive[], sfDepth: number, algoVersion: number } } = {};
-
-      for (let monthAndType of months) {
-        let monthGames = window.localStorage.getItem(monthAndType);
-        localCache[monthAndType] = monthGames ? JSON.parse(monthGames) : ({ games: [], sfDepth: 0, algoVersion: 0 });
-      }
-
-      for (const archive of filteredArchives) {
-        let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "-" + gameType + "-" + userName;
-        if (!localCache[monthAndType] || localCache[monthAndType].sfDepth < sfDepth || localCache[monthAndType].algoVersion != algoVersion) {
-          localCache[monthAndType] = { games: [], sfDepth: sfDepth, algoVersion: algoVersion };
-        }
-        if (!months.includes(monthAndType)) {
-          months.push(monthAndType);
-        }
-        // Avoid duplicates
-        if (!localCache[monthAndType].games.find(x => x.url === archive.url)) {
-          localCache[monthAndType].games.push(archive);
-        }
-      }
-
-      window.localStorage.setItem("months", JSON.stringify(months));
-
-      for (const entry of Object.entries(localCache)) {
-        window.localStorage.setItem(entry[0], JSON.stringify(entry[1]));
-      }
-
-      let monthsInfo: { [key: string]: { nbGames: number, sfDepth: number, algoVersion: number } } = {};
-      for (let month of Object.keys(localCache)) {
-        monthsInfo[month] = { nbGames: localCache[month].games.length, sfDepth: localCache[month].sfDepth, algoVersion: localCache[month].algoVersion };
-      }
-      setMonthsInfo(monthsInfo);
+      let monthInfo = setLocalCache(filteredArchives);
+      setMonthsInfo(monthInfo);
 
       setHydratedArchives(filteredArchives);
+      console.log("filteredArchives final", filteredArchives);
     })();
 
   }, [archives]);
@@ -527,6 +562,8 @@ function App() {
     localStorage.setItem('platform', platform);
     localStorage.setItem('gameType', gameType);
 
+    let archiveTemp: ChessComArchive[] = [];
+
     if (platform == "chesscom") {
       let responsePlayer;
       try {
@@ -539,7 +576,6 @@ function App() {
       setUserName(userNameFixed);
 
       // Fetch all archives (for one month for now)
-      let archiveTemp: ChessComArchive[] = []
       const startYear = startDate.getUTCFullYear();
       const endYear = endDate.getUTCFullYear();
       const startMonth = startDate.getUTCMonth() + 1;
@@ -557,8 +593,6 @@ function App() {
           m++;
         }
       }
-      setComputingState(ComputingState.ComputingStats);
-      setArchives(archiveTemp);
     } else if (platform == "lichess") {
       let startTime = startDate.getTime();
       let endDateCopy = new Date(endDate);
@@ -572,7 +606,7 @@ function App() {
       });
       let res = await response.text();
       let lines = res.split("\n");
-      let archiveTemp: ChessComArchive[] = []
+
       for (let line of lines) {
         if (!line)
           continue;
@@ -584,15 +618,28 @@ function App() {
 
       // Fitler based of game type
       archiveTemp = archiveTemp.filter(x => x.time_class === gameType);
-      console.log(archiveTemp);
-
-      if (archiveTemp.length == 0) {
-        setComputingState(ComputingState.ErrorNoGamesFound);
-        return;
-      }
-      setComputingState(ComputingState.ComputingStats);
-      setArchives(archiveTemp);
     }
+
+    // If there si no game to compute at this point show a little message
+    if (archiveTemp.length == 0) {
+      setComputingState(ComputingState.ErrorNoGamesFound);
+      return;
+    }
+
+    // Filter out games that have already been computed
+    let localCache = getLocalCache(userName);
+    console.log(archiveTemp)
+    archiveTemp = archiveTemp.filter(archive => {
+      let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "%" + gameType + "%" + userName;
+      if (!localCache[monthAndType] || localCache[monthAndType].sfDepth < sfDepth) {
+        return true;
+      }
+      return !localCache[monthAndType].games.find(x => x.url === archive.url);
+    });
+    console.log("filtered", archiveTemp)
+
+    setComputingState(ComputingState.ComputingStats);
+    setArchives(archiveTemp);
   }
 
   function makeAMove(move: ShortMove) {
@@ -705,7 +752,19 @@ function App() {
               setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
             }}
           />
-          <Button variant="contained" onClick={fetchGames} sx={{ mt: 1.1, mr: 1, ml: 1 }} disabled={LoadingStates.includes(computingState) || !userName}>
+          <TextField
+            type="number"
+            label="Depth"
+            defaultValue={sfDepth}
+            variant="outlined"
+            size="small"
+            inputProps={{ min: 1, max: 18 }}
+            sx={{ width: 80, m: 1 }}
+            onChange={event => {
+              const value = Math.min(Math.max(parseInt(event.target.value, 10), 0), 18);
+              setSfDepth(value);
+            }} />
+          <Button variant="contained" onClick={fetchGames} sx={{ mt: 1.1, mr: 1, ml: 1 }} disabled={LoadingStates.includes(computingState) || !userName || sfDepth <= 0 || sfDepth > 18}>
             {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>
           {(computingState != ComputingState.NotLoading && hydratedArchives && hydratedArchives?.length > 0) ? <CircularProgress style={{ position: "absolute", marginTop: "8px" }} variant="determinate" value={loadingProgress} size='35px' /> : null}
@@ -723,7 +782,7 @@ function App() {
           {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
           {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
           {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
-          {computingState == ComputingState.AnalysingGames ? <p>Analysing {hydratedArchives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
+          {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
         </div> : <>
           <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
             {Object.entries(monthsInfo).map(([month, info]) => (
@@ -733,10 +792,10 @@ function App() {
                 </IconButton>
               }>
                 <ListItemIcon>
-                  {getGameTypeIcon(month.split('-')[2])}
+                  {getGameTypeIcon(month.split('%')[2])}
                 </ListItemIcon>
-                <ListItemText primary={`${month} - ${info.nbGames} games - Stockfish nnue depth ${info.sfDepth}`}
-                  secondary={'Completed - 100%'} />
+                <ListItemText primary={`${month.split('%')[0]} - ${month.split('%')[2]} : ${info.nbGames} ${month.split('%')[1]} games`}
+                  secondary={`Completed - 100% with Stockfish nnue depth ${info.sfDepth}`} />
               </ListItem>))}
           </List>
           <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>

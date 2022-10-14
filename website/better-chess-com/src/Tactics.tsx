@@ -1,13 +1,9 @@
 import { Box, Card, Grid, Tooltip } from "@mui/material";
 import { ChartData } from "chart.js";
-import { PieceColor, PieceType, Square } from "chess.js";
 import { useEffect, useState } from "react";
-import { Bar, Pie } from "react-chartjs-2";
-import { getResult, HydratedChessComArchive } from "./ChessComArchive"
+import { Bar } from "react-chartjs-2";
+import { HydratedChessComArchive } from "./ChessComArchive"
 import InfoIcon from '@mui/icons-material/Info';
-import { GridFilterModel } from "@mui/x-data-grid";
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-
 
 type TacticsProps = { archives: HydratedChessComArchive[] | undefined }
 
@@ -16,6 +12,7 @@ export function Tactics(props: TacticsProps) {
   const [tacticsBarChartEarly, setTacticsBarChartEarly] = useState<(ChartData<"bar", number[], unknown> & { options: any })>();
   const [tacticsBarChartMid, setTacticsBarChartMid] = useState<(ChartData<"bar", number[], unknown> & { options: any })>();
   const [tacticsBarChartLate, setTacticsBarChartLate] = useState<(ChartData<"bar", number[], unknown> & { options: any })>();
+  const [showMistakesPerStage, setShowMistakesPerStage] = useState<boolean>(false);
 
   useEffect(() => {
     if (!props.archives)
@@ -170,23 +167,25 @@ export function Tactics(props: TacticsProps) {
     props.archives && props.archives.length > 0 && !!tacticsBarChart && !!tacticsBarChartEarly && !!tacticsBarChartMid && !!tacticsBarChartLate ?
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Tactics</h2>
+        <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
         <Grid container direction="column" alignItems="center" justifyContent="center">
           <h3>Mistakes <Tooltip title="Average mistakes you and your opponents are doing per game" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-          <Box sx={{ width: 0.5 }} >
-            <Bar data={tacticsBarChart} options={tacticsBarChart.options} />
+          <Box sx={{ width: 500 }} >
+            <Bar data={tacticsBarChart} options={tacticsBarChart.options} onClick={() => setShowMistakesPerStage(!showMistakesPerStage)} className="cursorPointer" />
           </Box>
-          <h3>Mistakes by game stage</h3>
-          <Grid container direction="row" alignItems="center" justifyContent="space-evenly">
-            <Box sx={{ width: 0.3 }} >
-              <Bar data={tacticsBarChartEarly} options={tacticsBarChartEarly.options} />
-            </Box>
-            <Box sx={{ width: 0.3 }} >
-              <Bar data={tacticsBarChartMid} options={tacticsBarChartMid.options} />
-            </Box>
-            <Box sx={{ width: 0.3 }} >
-              <Bar data={tacticsBarChartLate} options={tacticsBarChartLate.options} />
-            </Box>
-          </Grid>
+          {showMistakesPerStage ? (<><h3>Mistakes by game stage</h3>
+            <Grid container direction="row" alignItems="center" justifyContent="space-evenly">
+              <Box sx={{ width: 300 }} >
+                <Bar data={tacticsBarChartEarly} options={tacticsBarChartEarly.options} />
+              </Box>
+              <Box sx={{ width: 300 }} >
+                <Bar data={tacticsBarChartMid} options={tacticsBarChartMid.options} />
+              </Box>
+              <Box sx={{ width: 300 }} >
+                <Bar data={tacticsBarChartLate} options={tacticsBarChartLate.options} />
+              </Box>
+            </Grid>
+          </>) : null}
         </Grid>
       </Card> : null
   )

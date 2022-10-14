@@ -1,4 +1,4 @@
-import { Button, Card, Grid, Tooltip } from "@mui/material";
+import { Box, Button, Card, Grid, Tooltip } from "@mui/material";
 import { ChartData } from "chart.js";
 import { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
@@ -184,7 +184,8 @@ export function Openings(props: OpeningsProps) {
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Openings</h2>
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Result of the game" : "Advantage out of opening (move 10)"}
+        <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
+        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Advantage out of opening (move 10)" : "Result of the game"}
           <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
         </Button>
         <Grid container className="openings">
