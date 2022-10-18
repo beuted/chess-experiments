@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { Chess, ChessInstance, ShortMove, Square } from 'chess.js'
-import { Line, Pie } from 'react-chartjs-2';
-import { Chessboard } from "react-chessboard";
 import {
   Chart as ChartJS, CategoryScale,
   LinearScale,
@@ -17,25 +15,18 @@ import {
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { StockfishService, StockfishState } from './stockfishService';
 import ChessWebAPI from 'chess-web-api';
-import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, getResultAsString, HydratedChessComArchive } from './ChessComArchive';
+import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, HydratedChessComArchive } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
-import {
-  GridFilterModel,
-  GridRowsProp,
-} from '@mui/x-data-grid';
-import { Alert, Box, Button, CircularProgress, Container, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
-import { GamesTable } from './GamesTable';
-import { Openings } from './Openings';
-import { TimeManagement } from './TimeManagement';
-import PsychologyIcon from '@mui/icons-material/Psychology';
+import { Alert, Button, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import ShutterSpeedOutlinedIcon from '@mui/icons-material/ShutterSpeedOutlined';
-import { EndGame, Final, getFinal, getFinalName, getPiecesFromBoard, isWinningFinal } from './EndGame';
-import { Tactics } from './Tactics';
-import { Advantage } from './Advantage';
+import { Final, getFinal, getPiecesFromBoard, isWinningFinal } from './EndGame';
 import { getLocalCache, setLocalCache } from './CacheUtils';
+import { Statistics } from './Statistics';
+import { BoardPlay } from './BoardPlay';
+import { Route, Routes } from 'react-router-dom';
 
 
 enum ComputingState {
@@ -44,8 +35,7 @@ enum ComputingState {
   ComputingStats = 2,
   ErrorFetchingUser = 3,
   ErrorNoGamesFound = 4,
-  StartDateMustBeBeforeEndDate = 5,
-  AnalysingGames = 6,
+  AnalysingGames = 5,
 }
 
 const LoadingStates = [ComputingState.FetchingGames, ComputingState.ComputingStats, ComputingState.AnalysingGames]
@@ -66,21 +56,6 @@ function App() {
   const algoVersion = 2;
 
   var chessAPI = new ChessWebAPI();
-  const defaultData = {
-    labels: ['', '', ''],
-    datasets: [
-      {
-        label: '',
-        data: [5, 6, 7],
-        backgroundColor: 'rgb(0, 99, 132)',
-        borderColor: 'rgb(255, 99, 132)',
-      }
-    ],
-  };
-
-  var startDateDefault = new Date();
-  startDateDefault.setMonth(startDateDefault.getMonth() - 1);
-
 
   let storedGameType = localStorage.getItem('gameType') || 'rapid';
   const [gameType, setGameType] = useState<string>(storedGameType);
@@ -94,16 +69,13 @@ function App() {
   let storedSfDepth = localStorage.getItem('sfDepth') || '10';
   const [sfDepth, setSfDepth] = useState<number>(Number(storedSfDepth));
 
-  const [startDate, setStartDate] = useState<Date>(startDateDefault);
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  let storedMaxNbFetchedGame = localStorage.getItem('maxNbFetchedGame') || '100';
+  const [maxNbFetchedGame, setMaxNbFetchedGame] = useState<number>(Number(storedMaxNbFetchedGame));
 
-  const [data, setData] = useState(defaultData);
+  const [startDate, setStartDate] = useState<Date>(new Date());
 
-  const [board, setBoard] = useState<ChessInstance>(new Chess());
   const [archives, setArchives] = useState<ChessComArchive[]>();
   const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
-  const [gridRow, setGridRow] = useState<GridRowsProp>();
-  const [tableFilters, setTableFilters] = useState<GridFilterModel>({ items: [] });
   const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number } }>({});
@@ -191,7 +163,7 @@ function App() {
     let monthsString = localStorage.getItem('months');
     let months: string[] = monthsString ? JSON.parse(monthsString) : [];
     let hydratedArchives: HydratedChessComArchive[] = [];
-    let monthInfo: { [month: string]: { nbGames: number, sfDepth: number } } = {};
+    let monthsInfo: { [month: string]: { nbGames: number, sfDepth: number } } = {};
 
     // If the algo version has changed clean all the cache
     if (algoVersionStorage && Number(algoVersionStorage) != algoVersion) {
@@ -209,11 +181,13 @@ function App() {
     for (let monthAndType of months) {
       let monthGamesString = localStorage.getItem(monthAndType);
       let monthGames: { games: HydratedChessComArchive[], sfDepth: number } = monthGamesString ? JSON.parse(monthGamesString) : {};
-      monthInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth }
+      monthsInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth }
       hydratedArchives = hydratedArchives.concat(monthGames.games);
     }
 
-    setMonthsInfo(monthInfo);
+    console.log(monthsInfo);
+
+    setMonthsInfo(monthsInfo);
     setHydratedArchives(hydratedArchives);
   }, []);
 
@@ -300,7 +274,7 @@ function App() {
       }
     }
 
-    // Compute finals
+    // Compute finals //TODO: we should take the score into account to know if the final is winning or not
     let final: Final = Final.NoFinal
     let previousMoveFinal: Final = Final.NoFinal
 
@@ -435,6 +409,7 @@ function App() {
       setMonthsInfo(monthInfo);
 
       setHydratedArchives(filteredArchives);
+      setComputingState(ComputingState.NotLoading);
     })();
 
   }, [archives]);
@@ -469,50 +444,21 @@ function App() {
     });
   }
 
-  useEffect(() => {
-    if (!hydratedArchives || hydratedArchives.length == 0) {
-      return;
-    }
-    // Set grid rows
-    setGridRow(hydratedArchives.map((x, i) => ({
-      id: i,
-      url: x.url,
-      color: x.playingWhite ? 'white' : 'black',
-      result: getResultAsString(x.result),
-      scoreAtMove10: (x.scoreOutOfOpening * (x.playingWhite ? 1 : -1) * 0.01).toFixed(2),
-      endTime: new Date(x.end_time * 1000),
-      opening: x.opening,
-      final: getFinalName(x.final),
-      winningFinal: getFinalName(x.winningFinal),
-      mistakesPlayer: x.mistakesPlayer.join(", "),
-      missedGainsPlayer: x.missedGainPlayer.join(", "),
-      goodMovesPlayer: x.goodMovePlayer.join(", "),
-      mistakesOpponent: x.mistakesOpponent.join(", "),
-      missedGainsOpponent: x.missedGainOpponent.join(", "),
-      goodMovesOpponent: x.goodMoveOpponent.join(", "),
-    })));
-    setComputingState(ComputingState.NotLoading);
-  }, [hydratedArchives]);
-
   async function fetchGames() {
     setComputingState(ComputingState.FetchingGames);
-    // Fetch player info
-
-    if (startDate.getTime() > endDate.getTime()) {
-      setComputingState(ComputingState.StartDateMustBeBeforeEndDate);
-      return;
-    }
-
     // Save variables choosen in localstorage
     localStorage.setItem('userName', userName);
     localStorage.setItem('platform', platform);
     localStorage.setItem('gameType', gameType);
+    localStorage.setItem('sfDepth', String(sfDepth));
+    localStorage.setItem('maxNbFetchedGame', String(maxNbFetchedGame));
 
     let archiveTemp: ChessComArchive[] = [];
 
     if (platform == "chesscom") {
       let responsePlayer;
       try {
+        // Fetch player info
         responsePlayer = await chessAPI.getPlayer(userName);
       } catch {
         setComputingState(ComputingState.ErrorFetchingUser);
@@ -523,47 +469,65 @@ function App() {
 
       // Fetch all archives (for one month for now)
       const startYear = startDate.getUTCFullYear();
-      const endYear = endDate.getUTCFullYear();
       const startMonth = startDate.getUTCMonth() + 1;
-      const endMonth = endDate.getUTCMonth() + 1;
       let y = startYear;
       let m = startMonth;
-
-      while (y < endYear || m <= endMonth) {
+      while (y > startYear - 2) { // Set a limit to 2 years to avoid infinity loop user has less than the numbe rof asked games
         let response = await chessAPI.getPlayerCompleteMonthlyArchives(userNameFixed, y, m);
-        archiveTemp = archiveTemp.concat(response.body.games)
 
-        if (m == 12) {
-          m = 1; y++;
+        if (archiveTemp.length + response.body.games.length >= maxNbFetchedGame) {
+          // If we reach the last call we don't take all the games from this month
+          var gamesToBeAdded = response.body.games.slice(-(maxNbFetchedGame - archiveTemp.length));
+          archiveTemp = archiveTemp.concat(gamesToBeAdded);
+          break;
+        }
+
+        archiveTemp = archiveTemp.concat(response.body.games);
+
+        if (m == 1) {
+          m = 12; y--;
         } else {
-          m++;
+          m--;
         }
       }
     } else if (platform == "lichess") {
       let startTime = startDate.getTime();
-      let endDateCopy = new Date(endDate);
-      endDateCopy.setMonth(endDateCopy.getMonth() + 1);
+      let endDateCopy = new Date(startTime);
+      endDateCopy.setMonth(endDateCopy.getMonth() - 1);
       let endTime = endDateCopy.getTime();
-      let url = `https://lichess.org/api/games/user/${userName}?pgnInJson=true&clocks=true&opening=true&perfType=${gameType}&since=${startTime}&until=${endTime}`;
-      let response = await fetch(url, {
-        headers: {
-          'Accept': 'application/x-ndjson'
+      let month = 0;
+
+      while (month < 12 * 2) { // Set a limit to 2 years to avoid infinity loop user has less than the number of asked games
+        let url = `https://lichess.org/api/games/user/${userName}?pgnInJson=true&clocks=true&opening=true&perfType=${gameType}&since=${endTime}&until=${startTime}`;
+        let response = await fetch(url, {
+          headers: {
+            'Accept': 'application/x-ndjson'
+          }
+        });
+        let res = await response.text();
+        let lines = res.split("\n");
+
+        for (let line of lines) {
+          if (!line)
+            continue;
+          let lichessArchive = JSON.parse(line);
+
+          if (lichessArchive.variant == "standard" && !!lichessArchive.moves && lichessArchive.speed === gameType) { // Filter based of game type
+            archiveTemp.push(fromLichessToChessComArchive(lichessArchive));
+            if (archiveTemp.length >= maxNbFetchedGame) {
+              month = 1000; // Easy way to break the while loop
+              break;
+            }
+          }
         }
-      });
-      let res = await response.text();
-      let lines = res.split("\n");
 
-      for (let line of lines) {
-        if (!line)
-          continue;
-        let lichessArchive = JSON.parse(line);
+        // Update start and end Date
+        startTime = endTime;
+        endDateCopy.setMonth(endDateCopy.getMonth() - 1);
+        endTime = endDateCopy.getTime();
 
-        if (lichessArchive.variant == "standard" && !!lichessArchive.moves)
-          archiveTemp.push(fromLichessToChessComArchive(lichessArchive));
+        month++;
       }
-
-      // Fitler based of game type
-      archiveTemp = archiveTemp.filter(x => x.time_class === gameType);
     }
 
     // If there si no game to compute at this point show a little message
@@ -586,45 +550,9 @@ function App() {
     setArchives(archiveTemp);
   }
 
-  function makeAMove(move: ShortMove) {
-    const gameCopy = { ...board };
-    const result = gameCopy.move(move);
-    setBoard(gameCopy);
-    return result; // null if the move was illegal, the move object if the move was legal
-  }
-
-  function onDrop(sourceSquare: Square, targetSquare: Square) {
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: 'q' // always promote to a queen for example simplicity
-    });
-
-    // illegal move
-    if (move === null) return false;
-
-    return true;
-  }
-
   return (
     <div className="App">
       <div className="app-container">
-        {false ?? <div>
-          <p>
-            Game advantage evolution
-          </p>
-
-          <div style={{ width: "800px", height: "300px" }}>
-            <Line
-              datasetIdKey='id'
-              data={data}
-              options={{ maintainAspectRatio: false }}
-            />
-          </div>
-
-          <Chessboard position={board.fen()} onPieceDrop={onDrop} />
-        </div>}
-
         {(computingState != ComputingState.NotLoading) ?
           <LinearProgress style={{ width: "100%" }} variant="determinate" value={loadingProgress} />
           : null}
@@ -686,20 +614,17 @@ function App() {
             }}
           />
           <TextField
-            id="endDate"
-            label="End date"
-            type="month"
-            InputProps={{ inputProps: { max: new Date().toISOString().substring(0, 7) } }}
-            defaultValue={endDate.toISOString().substring(0, 7)}
+            type="number"
+            label="# games"
+            defaultValue={maxNbFetchedGame}
+            variant="outlined"
             size="small"
-            sx={{ width: 150, m: 1 }}
-            InputLabelProps={{
-              shrink: true,
-            }}
+            inputProps={{ min: 1 }}
+            sx={{ width: 80, m: 1 }}
             onChange={event => {
-              setEndDate([new Date(event.target.value), new Date()].sort((a, b) => a.getTime() - b.getTime())[0]);
-            }}
-          />
+              const value = Math.max(parseInt(event.target.value, 10), 1);
+              setMaxNbFetchedGame(value);
+            }} />
           <TextField
             type="number"
             label="Depth"
@@ -718,7 +643,6 @@ function App() {
         </Grid>
         {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
         {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
-        {computingState == ComputingState.StartDateMustBeBeforeEndDate ? <Alert severity="warning">selected start date must come before end date</Alert> : null}
 
         {(!hydratedArchives || hydratedArchives.length == 0) ? <div>
           {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
@@ -727,9 +651,9 @@ function App() {
           {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
         </div> : <>
           <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
-            {Object.entries(monthsInfo).map(([month, info]) => (
+            {Object.entries(monthsInfo).sort().map(([month, info]) => (
               <ListItem className="hoverGray" key={month} secondaryAction={
-                <IconButton edge="end" aria-label="delete" onClick={() => deleteMonth(month)}>
+                <IconButton edge="end" aria-label="delete" onClick={() => deleteMonth(month)} disabled={computingState != ComputingState.NotLoading}>
                   <DeleteIcon />
                 </IconButton>
               }>
@@ -740,18 +664,13 @@ function App() {
                   secondary={`Completed - 100% with Stockfish nnue depth ${info.sfDepth}`} />
               </ListItem>))}
           </List>
-          <Openings archives={hydratedArchives} setTableFilters={setTableFilters}></Openings>
-          <TimeManagement archives={hydratedArchives}></TimeManagement>
-          <EndGame archives={hydratedArchives} setTableFilters={setTableFilters}></EndGame>
-          <Tactics archives={hydratedArchives}></Tactics>
-          <Advantage archives={hydratedArchives}></Advantage>
-
-          <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
-            <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>
-          </div>
+          <Routes>
+            <Route path="/" element={<Statistics hydratedArchives={hydratedArchives}></Statistics>} />
+            <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
+          </Routes>
         </>}
       </div>
-    </div >
+    </div>
   );
 }
 

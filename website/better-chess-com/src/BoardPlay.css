@@ -1,0 +1,37 @@
+.variant-line {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 400px;
+  height: 1.2em;
+  white-space: nowrap;
+  padding: 6px 0 6px 0;
+  font-size: 15px;
+}
+
+.lichess-font {
+  font-family: 'Lichess';
+  font-size: 15px;
+}
+
+.san-cell {
+  cursor: pointer;
+  line-height: 30px;
+}
+
+.san-cell:hover {
+  background-color: #bfd7e4;
+  line-height: 30px;
+}
+
+.san-cell-mistake {
+  background-color: #D36446;
+
+}
+
+.san-cell-missed-gain {
+  background-color: #F2B14F;
+}
+
+.san-cell-current {
+  background-color: #bfd7e4;
+}

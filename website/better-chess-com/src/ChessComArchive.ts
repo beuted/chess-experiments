@@ -94,9 +94,9 @@ export function fromLichessToChessComArchive(lichess: LichessArchive): ChessComA
     },
     url: "https://lichess.org/" + lichess.id,
     pgn: lichess.pgn,
-    start_time: lichess.createdAt,
+    start_time: lichess.createdAt / 1000,
     time_class: lichess.speed,
-    end_time: lichess.lastMoveAt,
+    end_time: lichess.lastMoveAt / 1000,
     rules: lichess.variant
   }
 }

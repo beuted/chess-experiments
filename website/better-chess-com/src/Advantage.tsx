@@ -239,16 +239,16 @@ export function Advantage(props: AdvantageProps) {
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Advantage & disadvantage</h2>
         <Grid container direction="row" alignItems="center" justifyContent="space-around">
-          <Grid container direction="column" alignItems="center" justifyContent="center" sx={{ width: 0.4, minWidth: 500 }}>
+          <Grid container direction="column" alignItems="center" justifyContent="center" sx={{ width: 0.5, minWidth: 400 }}>
             <h3>Conversion of advantage <Tooltip title="The % of games you or your opponent manage to win after taking given advantage" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-            <Box sx={{ width: 500 }}>
+            <Box sx={{ minWidth: 400 }}>
               <Bar data={tacticsBarChart} options={tacticsBarChart.options} />
             </Box>
           </Grid>
 
-          <Grid container direction="column" alignItems="center" justifyContent="center" sx={{ width: 0.4, minWidth: 500 }}>
+          <Grid container direction="column" alignItems="center" justifyContent="center" sx={{ width: 0.5, minWidth: 400 }}>
             <h3>Resourcefulness <Tooltip title="The % of games you or your opponent manage to win after being in disadvantage" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-            <Box sx={{ width: 500 }}>
+            <Box sx={{ minWidth: 400 }}>
               <Bar data={resourcefulnessBarChart} options={resourcefulnessBarChart.options} />
             </Box>
           </Grid>

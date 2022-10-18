@@ -10,6 +10,7 @@ declare const Stockfish: () => Stockfish;
 
 export type StockfishState = {
   scores: (number | undefined)[];
+  mainLines?: string[][];
 }
 
 export class StockfishService {
@@ -18,7 +19,9 @@ export class StockfishService {
   private depth = 15;
 
   private scores: number[] = [];
-  private fens: string[] = [];
+  private mainLines: string[][] = [];
+  private fetchMainLines = false;
+  //private fens: string[] = [];
   private cb: ((line: string) => void) | null = null;
 
   private fenScoresCache: { [fen: string]: number } = {};
@@ -28,7 +31,8 @@ export class StockfishService {
     this.depth = depth;
   }
 
-  async setup() {
+  async setup(fetchMainLines: boolean = false) {
+    this.fetchMainLines = fetchMainLines;
     this.sf = await Stockfish();
 
     // tell the engine to switch to UCI mode
@@ -41,10 +45,12 @@ export class StockfishService {
   }
 
   async init(updateState: (state: StockfishState) => void): Promise<any> {
+    this.sf?.postMessage("stop");
     this.sf?.postMessage("ucinewgame");
     this.updateState = updateState;
     this.scores = [];
-    this.fens = [];
+    this.mainLines = [];
+    //this.fens = [];
 
     if (!!this.cb)
       this.sf?.removeMessageListener(this.cb)
@@ -54,11 +60,11 @@ export class StockfishService {
       //console.warn(line);
 
       if ((line.startsWith(`info depth ${this.depth} seldepth`) || line.startsWith(`info depth 0`)) && params[10] != 'upperbound' && params[10] != 'lowerbound') {
-
         let score = 0;
         if (params.includes('cp')) {
           score = Number(params[9]);
         } else if (params.includes('mate')) {
+
           let sign = !params[9] ? -1 : Math.sign(Number(params[9])); // When Number(params[9]) == 0 or undefined we use a positive sign
 
           score = sign * 100000;
@@ -71,11 +77,26 @@ export class StockfishService {
           console.error("cannot parse line " + line);
         }
 
+        this.scores.push(score); // If cache is setup then it gets more complicated see below
+        /*
         // Push score on the first empty slot (empty slot can be created when values are in cache)
         for (let i = 0; i < this.scores.length + 1; i++) {
           if (this.scores[i] === undefined) {
             this.scores[i] = score;
             break;
+          }
+        }*/
+
+        // Add main line to list is option is activated
+        if (this.fetchMainLines) {
+          if (line.indexOf(" pv ") != -1) {
+            const mainLine = line
+              .split(" pv ")[1]
+              .split(" ");
+            console.log(mainLine)
+            this.mainLines.push(mainLine);
+          } else {
+            this.mainLines.push([]);
           }
         }
 
@@ -83,7 +104,7 @@ export class StockfishService {
         /*if (!this.fenScoresCache[this.fens[this.scores.length - 1]])
           this.fenScoresCache[this.fens[this.scores.length - 1]] = score;*/
 
-        updateState({ scores: this.scores });
+        updateState({ scores: this.scores, mainLines: this.mainLines });
       }
     }
 
@@ -91,7 +112,7 @@ export class StockfishService {
   }
 
   computeFen(fen: string): void {
-    this.fens.push(fen);
+    //this.fens.push(fen);
     // Use the cache
     /*if (this.fenScoresCache[fen]) {
       console.log("found in cache", fen, this.fenScoresCache[fen]);

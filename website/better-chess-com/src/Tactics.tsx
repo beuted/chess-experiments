@@ -170,18 +170,18 @@ export function Tactics(props: TacticsProps) {
         <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
         <Grid container direction="column" alignItems="center" justifyContent="center">
           <h3>Mistakes <Tooltip title="Average mistakes you and your opponents are doing per game" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-          <Box sx={{ width: 500 }} >
+          <Box sx={{ maxWidth: 500, width: '100%' }} >
             <Bar data={tacticsBarChart} options={tacticsBarChart.options} onClick={() => setShowMistakesPerStage(!showMistakesPerStage)} className="cursorPointer" />
           </Box>
           {showMistakesPerStage ? (<><h3>Mistakes by game stage</h3>
             <Grid container direction="row" alignItems="center" justifyContent="space-evenly">
-              <Box sx={{ width: 300 }} >
+              <Box sx={{ maxWidth: 300, width: '100%' }} >
                 <Bar data={tacticsBarChartEarly} options={tacticsBarChartEarly.options} />
               </Box>
-              <Box sx={{ width: 300 }} >
+              <Box sx={{ maxWidth: 300, width: '100%' }} >
                 <Bar data={tacticsBarChartMid} options={tacticsBarChartMid.options} />
               </Box>
-              <Box sx={{ width: 300 }} >
+              <Box sx={{ maxWidth: 300, width: '100%' }} >
                 <Bar data={tacticsBarChartLate} options={tacticsBarChartLate.options} />
               </Box>
             </Grid>

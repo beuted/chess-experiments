@@ -19,3 +19,8 @@ body,
 .App {
   height: 100%;
 }
+
+@font-face {
+  font-family: "Lichess";
+  src: url("/public/fonts/lichess.chess.woff2") format("woff2"), url("/public/fonts/lichess.chess.woff") format("woff");
+}
