@@ -72,6 +72,9 @@ function App() {
   let storedMaxNbFetchedGame = localStorage.getItem('maxNbFetchedGame') || '100';
   const [maxNbFetchedGame, setMaxNbFetchedGame] = useState<number>(Number(storedMaxNbFetchedGame));
 
+  let storedNumberOfThreadsX2 = localStorage.getItem('numberOfThreadsX2') || '2';
+  const [numberOfThreadsX2, setNumberOfThreadsX2] = useState<number>(Number(storedNumberOfThreadsX2));
+
   const [startDate, setStartDate] = useState<Date>(new Date());
 
   const [archives, setArchives] = useState<ChessComArchive[]>();
@@ -79,6 +82,7 @@ function App() {
   const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number } }>({});
+  const [stockfishServices, setStockfishServices] = useState<StockfishService[]>([]);
 
   function getGameTypeIcon(gameType: string) {
     switch (gameType) {
@@ -93,7 +97,6 @@ function App() {
     }
   }
 
-  const sf = new StockfishService(sfDepth);
 
   function deleteMonth(monthAndType: string) {
     let monthsString = localStorage.getItem('months');
@@ -184,8 +187,6 @@ function App() {
       monthsInfo[monthAndType] = { nbGames: monthGames.games.length, sfDepth: monthGames.sfDepth }
       hydratedArchives = hydratedArchives.concat(monthGames.games);
     }
-
-    console.log(monthsInfo);
 
     setMonthsInfo(monthsInfo);
     setHydratedArchives(hydratedArchives);
@@ -308,19 +309,31 @@ function App() {
     // Compute score at each move
     setComputingState(ComputingState.AnalysingGames);
 
-    (async () => {
-      await sf.setup();
-      let i = 0;
-      let start = performance.now();
-      for (let archive of filteredArchives) {
-        let scores = await computeScoreForArchive(archive);
-        archive.scores = scores;
-        archive.scoreOutOfOpening = scores.length > 20 ? scores[20] : scores[scores.length - 1];
-        archive.sfDepth = sfDepth;
-
-        setLoadingProgress(100 * i / filteredArchives.length);
-        i++;
+    (async () => { //TODO: This is not optimal as when 1 thread has stopped it will wait for the others, also we seems to load several stockfish.worker.js when lichess doesn't (just the stockfish.js part) ther eis pbbly an optim here
+      for (let threadId = 0; threadId < numberOfThreadsX2; threadId++) {
+        await stockfishServices[threadId].setup();
       }
+
+      let start = performance.now();
+      for (let archiveId = 0; archiveId < filteredArchives.length; archiveId = archiveId + numberOfThreadsX2) {
+        setLoadingProgress(100 * archiveId / filteredArchives.length);
+
+        let numberOfThreadNeeded = Math.min(numberOfThreadsX2, filteredArchives.length - archiveId);
+
+        let scoresPromises = [];
+        for (let threadId = 0; threadId < numberOfThreadNeeded; threadId++) {
+          scoresPromises.push(computeScoreForArchive(filteredArchives[archiveId + threadId], stockfishServices[threadId]));
+        }
+
+        let scores = await Promise.all(scoresPromises);
+
+        for (let threadId = 0; threadId < numberOfThreadNeeded; threadId++) {
+          filteredArchives[archiveId + threadId].scores = scores[threadId];
+          filteredArchives[archiveId + threadId].scoreOutOfOpening = scores[threadId].length > 20 ? scores[threadId][20] : scores[threadId][scores[threadId].length - 1];
+          filteredArchives[archiveId + threadId].sfDepth = sfDepth;
+        }
+      }
+
       setLoadingProgress(0);
       console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
 
@@ -415,11 +428,12 @@ function App() {
   }, [archives]);
 
 
-  async function computeScoreForArchive(archive: HydratedChessComArchive) {
+  async function computeScoreForArchive(archive: HydratedChessComArchive, stockfishService: StockfishService) {
+    console.info(`computing ${archive.url} with ${archive.moves.length} moves`);
     return new Promise<number[]>(async (resolve) => {
       const chess = new Chess();
 
-      await sf.init((state: StockfishState) => {
+      await stockfishService.init((state: StockfishState) => {
         // While we don't have computed everything move sf state don't use it
         if (state.scores.length < archive.moves.length || state.scores.includes(undefined))
           return;
@@ -439,7 +453,7 @@ function App() {
 
         chess.load_pgn(pgn);
         const fen = chess.fen();
-        sf.computeFen(fen);
+        stockfishService.computeFen(fen);
       }
     });
   }
@@ -452,8 +466,15 @@ function App() {
     localStorage.setItem('gameType', gameType);
     localStorage.setItem('sfDepth', String(sfDepth));
     localStorage.setItem('maxNbFetchedGame', String(maxNbFetchedGame));
+    localStorage.setItem('numberOfThreadsX2', String(numberOfThreadsX2));
 
     let archiveTemp: ChessComArchive[] = [];
+
+    // Init additionnal sfServices needed
+    while (stockfishServices.length < numberOfThreadsX2) {
+      stockfishServices.push(new StockfishService(sfDepth));
+    }
+    setStockfishServices(stockfishServices);
 
     if (platform == "chesscom") {
       let responsePlayer;
@@ -637,6 +658,28 @@ function App() {
               const value = Math.min(Math.max(parseInt(event.target.value, 10), 0), 18);
               setSfDepth(value);
             }} />
+          <FormControl sx={{ width: 80, m: 1 }} size="small">
+            <InputLabel id="nb-thread-label"># threads</InputLabel>
+            <Select
+              labelId="nb-thread-label"
+              id="game-type"
+              value={String(numberOfThreadsX2)}
+              label="# threads"
+              onChange={(event: SelectChangeEvent) => {
+                setNumberOfThreadsX2(Number(event.target.value));
+              }}
+            >
+              <MenuItem value={'1'}>2</MenuItem>
+              <MenuItem value={'2'}>4</MenuItem>
+              <MenuItem value={'3'}>6</MenuItem>
+              <MenuItem value={'4'}>8</MenuItem>
+              <MenuItem value={'5'}>10</MenuItem>
+              <MenuItem value={'6'}>12</MenuItem>
+              <MenuItem value={'7'}>14</MenuItem>
+              <MenuItem value={'8'}>16</MenuItem>
+            </Select>
+          </FormControl>
+
           <Button variant="contained" onClick={fetchGames} sx={{ mt: 1.1, mr: 1, ml: 1 }} disabled={LoadingStates.includes(computingState) || !userName || sfDepth <= 0 || sfDepth > 18}>
             {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>

@@ -31,8 +31,9 @@ export class StockfishService {
     this.depth = depth;
   }
 
-  async setup(fetchMainLines: boolean = false) {
-    this.fetchMainLines = fetchMainLines;
+  async setup() {
+    if (this.sf)
+      return;
     this.sf = await Stockfish();
 
     // tell the engine to switch to UCI mode
@@ -44,7 +45,9 @@ export class StockfishService {
     // GUI: let the engine know if starting a new game
   }
 
-  async init(updateState: (state: StockfishState) => void): Promise<any> {
+  async init(updateState: (state: StockfishState) => void, fetchMainLines: boolean = false): Promise<any> {
+    this.fetchMainLines = fetchMainLines;
+
     this.sf?.postMessage("stop");
     this.sf?.postMessage("ucinewgame");
     this.updateState = updateState;
@@ -93,7 +96,6 @@ export class StockfishService {
             const mainLine = line
               .split(" pv ")[1]
               .split(" ");
-            console.log(mainLine)
             this.mainLines.push(mainLine);
           } else {
             this.mainLines.push([]);

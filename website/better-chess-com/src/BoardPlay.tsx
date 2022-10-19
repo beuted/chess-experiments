@@ -31,7 +31,7 @@ export function BoardPlay(props: BoardPlayProps) {
       return;
     }
     (async () => {
-      await sf.setup(true);
+      await sf.setup();
 
       setArchive(props.hydratedArchives![0]);
     })();
@@ -123,7 +123,7 @@ export function BoardPlay(props: BoardPlayProps) {
 
         const mainLine = state?.mainLines?.[state.mainLines.length - 1] || [];
         setCurrMainLine(mainLine);
-      });
+      }, true);
 
       sf.computeFen(gameCopy.fen());
       setBoard(gameCopy);
