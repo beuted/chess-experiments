@@ -19,11 +19,11 @@ export function getLocalCache(userName?: string): { [key: string]: { games: Hydr
   return localCache;
 }
 
-export function setLocalCache(filteredArchives: HydratedChessComArchive[], gameType: string, userName: string): { [key: string]: { nbGames: number, sfDepth: number } } {
+export function setLocalCache(filteredArchives: HydratedChessComArchive[], userName: string): { [key: string]: { nbGames: number, sfDepth: number } } {
   let localCache: { [key: string]: { games: HydratedChessComArchive[], sfDepth: number } } = {};
   let months: string[] = [];
   for (const archive of filteredArchives) {
-    let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "%" + gameType + "%" + userName;
+    let monthAndType: string = new Date(archive.end_time * 1000).toISOString().substring(0, 7) + "%" + archive.time_class + "%" + userName;
     if (!localCache[monthAndType]) {
       localCache[monthAndType] = { games: [], sfDepth: 99 };
     }

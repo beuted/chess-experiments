@@ -1,0 +1,31 @@
+.variant-number-indication {
+  color: gray;
+  font-size: 13px;
+}
+
+.variant-line {
+  position: relative;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 300px;
+  height: 30px;
+  white-space: nowrap;
+  font-size: 15px;
+  text-align: start;
+}
+
+.variant-line-content {
+  position: absolute;
+  padding: 5px;
+}
+
+
+.variant-line:hover {
+  white-space: normal;
+  overflow: visible;
+}
+
+.variant-line:hover .variant-line-content {
+  z-index: 1000;
+  background-color: #7dcbbc;
+}

@@ -1,9 +1,11 @@
-import { Box, Card, Grid, Tooltip } from "@mui/material";
+import { Box, Card, Grid, Tooltip, Button } from "@mui/material";
 import { ChartData } from "chart.js";
 import { useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { HydratedChessComArchive } from "./ChessComArchive"
 import InfoIcon from '@mui/icons-material/Info';
+import Badge from '@mui/material/Badge';
+import { Link } from "react-router-dom";
 
 type TacticsProps = { archives: HydratedChessComArchive[] | undefined }
 
@@ -13,6 +15,7 @@ export function Tactics(props: TacticsProps) {
   const [tacticsBarChartMid, setTacticsBarChartMid] = useState<(ChartData<"bar", number[], unknown> & { options: any })>();
   const [tacticsBarChartLate, setTacticsBarChartLate] = useState<(ChartData<"bar", number[], unknown> & { options: any })>();
   const [showMistakesPerStage, setShowMistakesPerStage] = useState<boolean>(false);
+  const [accuracy, setAccuracy] = useState<number>(0);
 
   useEffect(() => {
     if (!props.archives)
@@ -47,7 +50,14 @@ export function Tactics(props: TacticsProps) {
     let nbOpponentMissedGainLate = 0;
     let nbOpponentGoodMovesLate = 0;
 
+    let totalMoves = 0;
+    let diff = 0;
     for (var archive of props.archives) {
+      let start = archive.playingWhite ? 0 : 1;
+      for (let scoreIndex = start; scoreIndex < archive.scores.length - 1; scoreIndex += 2) {
+        diff += Math.max(0, (archive.scores[scoreIndex + 1] - archive.scores[scoreIndex]) * (archive.playingWhite ? -1 : 1));
+        totalMoves++;
+      }
 
       // Main chart
       nbPlayerMistakes += archive.mistakesPlayer.length;
@@ -81,6 +91,8 @@ export function Tactics(props: TacticsProps) {
       nbOpponentMissedGainLate += archive.missedGainOpponent.filter(x => x > 15 && x >= 30).length;
       nbOpponentGoodMovesLate += archive.goodMoveOpponent.filter(x => x > 15 && x >= 30).length;
     }
+
+    setAccuracy(diff / totalMoves / 100);
 
     let mistakesBarChart = getBarData("Mistakes", { blunders: nbPlayerMistakes, missedGain: nbPlayerMissedGain }, { blunders: nbOpponentMistakes, missedGain: nbOpponentMissedGain });
     setTacticsBarChart(mistakesBarChart)
@@ -167,9 +179,11 @@ export function Tactics(props: TacticsProps) {
     props.archives && props.archives.length > 0 && !!tacticsBarChart && !!tacticsBarChartEarly && !!tacticsBarChartMid && !!tacticsBarChartLate ?
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Tactics</h2>
-        <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
+        <h4>Accuracy: {accuracy.toFixed(2)} pawns <Tooltip title="Average pawn loss per move, the closer you are to zero the more accurate you are" arrow><InfoIcon></InfoIcon></Tooltip></h4>
         <Grid container direction="column" alignItems="center" justifyContent="center">
           <h3>Mistakes <Tooltip title="Average mistakes you and your opponents are doing per game" arrow><InfoIcon></InfoIcon></Tooltip></h3>
+          <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
+
           <Box sx={{ maxWidth: 500, width: '100%' }} >
             <Bar data={tacticsBarChart} options={tacticsBarChart.options} onClick={() => setShowMistakesPerStage(!showMistakesPerStage)} className="cursorPointer" />
           </Box>
@@ -186,6 +200,11 @@ export function Tactics(props: TacticsProps) {
               </Box>
             </Grid>
           </>) : null}
+          <Link to="/board" style={{ textDecoration: 'none', marginTop: 10 }}>
+            <Badge color="secondary" badgeContent={"bêta"}>
+              <Button variant="contained">Replay missed gains</Button>
+            </Badge>
+          </Link>
         </Grid>
       </Card> : null
   )

@@ -1,6 +1,6 @@
 import { Card, Grid, Tooltip } from "@mui/material";
 import { ChartData } from "chart.js";
-import { PieceColor, PieceType, Square } from "chess.js";
+import { PieceColor, PieceType, Square } from "./libs/chess.js";
 import { useEffect, useState } from "react";
 import { Pie } from "react-chartjs-2";
 import { getResult, HydratedChessComArchive } from "./ChessComArchive"

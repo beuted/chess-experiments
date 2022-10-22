@@ -2,13 +2,19 @@ import './BoardPlay.css';
 import { useEffect, useState } from "react";
 import { getPgnAtMove, HydratedChessComArchive } from "./ChessComArchive";
 import { Line } from 'react-chartjs-2';
-import { Chessboard } from "react-chessboard";
-import { Chess, ChessInstance, ShortMove, Square } from "chess.js";
-import { Grid, IconButton } from "@mui/material";
+import { Chessboard, CustomSquareStyles } from "react-chessboard";
+import { Button, Grid, IconButton } from "@mui/material";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
+import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import { StockfishService, StockfishState } from "./stockfishService";
+import { useKeyPress } from './ReactHelpers';
+import { ArchiveMoveDescription } from './ArchiveMoveDescription';
+import { VariantLine } from './VariantLine';
+import { Chess, ChessInstance, Square } from './libs/chess.js';
+import { Link } from "react-router-dom";
 
 type BoardPlayProps = { hydratedArchives: HydratedChessComArchive[] | undefined }
 
@@ -23,8 +29,20 @@ export function BoardPlay(props: BoardPlayProps) {
   const [currMainLine, setCurrMainLine] = useState<string[]>([]);
   const [currMainLineSan, setCurrMainLineSan] = useState<string[]>([]);
   const [gameSanList, setGameSanList] = useState<string[]>([]);
+  const [gameSanListNoSpoiler, setGameSanListNoSpoiler] = useState<string[]>([]);
+  const [interestMoves, setInterestMoves] = useState<{ gameId: number, moveId: number }[]>([]);
+  const [interestMoveId, setInterestMoveId] = useState<number | null>();
+  const [quizzMode, setQuizzMode] = useState<boolean>(true);
+  const [customSquareStyles, setCustomSquareStyles] = useState<CustomSquareStyles>({});
+  const [customArrows, setCustomArrows] = useState<Square[][]>([]);
+
+  const [showTips, setShowTips] = useState<boolean>(false);
+  const [showSolution, setShowSolution] = useState<boolean>(false);
 
   const [sf, setSf] = useState<StockfishService>(new StockfishService(sfDepth));
+
+  const leftPress = useKeyPress("ArrowLeft");
+  const rightPress = useKeyPress("ArrowRight");
 
   useEffect(() => {
     if (!props.hydratedArchives || props.hydratedArchives.length == 0) {
@@ -34,11 +52,43 @@ export function BoardPlay(props: BoardPlayProps) {
       await sf.setup();
 
       setArchive(props.hydratedArchives![0]);
+
+      let interestMoves: { gameId: number, moveId: number }[] = [];
+      for (const [i, archive] of Array.from(props.hydratedArchives!.entries()).reverse()) {
+        for (let missedGain of archive.missedGainPlayer) {
+          interestMoves.push({ gameId: i, moveId: missedGain - 2 });
+        }
+      }
+      setInterestMoves(interestMoves);
+
+      // Sey the interest move Id to 0 to start
+      setInterestMoveId(0);
     })();
   }, []);
 
+  useEffect(() => {
+    if (interestMoves.length <= 0 || interestMoveId == undefined)
+      return;
+
+    const interestMove = interestMoves[interestMoveId];
+    setArchive(props.hydratedArchives![interestMove.gameId]);
+    setCurrMoveBoxed(interestMove.moveId);
+  }, [interestMoveId]);
 
   useEffect(() => {
+    if (archive && rightPress) {
+      setCurrMoveBoxed(currMove + 1)
+    }
+  }, [rightPress]);
+
+  useEffect(() => {
+    if (archive && leftPress) {
+      setCurrMoveBoxed(currMove - 1)
+    }
+  }, [leftPress]);
+
+  useEffect(() => {
+    // Main line analysis
     if (!archive) {
       return;
     }
@@ -46,27 +96,15 @@ export function BoardPlay(props: BoardPlayProps) {
     var boardCopy = new Chess(board.fen());
 
     let currMainLineSan = [];
-    var moveNumber = currMove + 4;
-
-    if (currMainLine.length > 0 && moveNumber % 2 == 1) {
-      currMainLineSan.push(`${(moveNumber - 1) / 2}.`);
-    } else if (currMainLine.length > 0) {
-      currMainLineSan.push(`${(moveNumber - 2) / 2}...`);
-    }
 
     for (const move of currMainLine) {
       var res = boardCopy.move(move, { sloppy: true });
       if (!res) {
-        console.error("this should not have happen !!", board.fen(), move)
+        console.error("this should not have happen !!", board.fen(), "|", move)
         break;
       }
 
       currMainLineSan.push(res.san);
-
-      if (moveNumber % 2 == 0) {
-        currMainLineSan.push(`${moveNumber / 2}.`);
-      }
-      moveNumber++;
     }
 
     setCurrMainLineSan(currMainLineSan);
@@ -74,6 +112,7 @@ export function BoardPlay(props: BoardPlayProps) {
 
 
   useEffect(() => {
+    // Set board
     if (!archive) {
       return;
     }
@@ -81,11 +120,10 @@ export function BoardPlay(props: BoardPlayProps) {
     let board = new Chess();
     let gameSanList: string[] = [];
 
-
     for (const move of archive.moves) {
       var res = board.move(move, { sloppy: true });
       if (!res) {
-        console.error("this should not have happen !!", board.fen(), move)
+        console.error("this should not have happen !!", board.fen(), "|", move)
         break;
       }
 
@@ -96,8 +134,27 @@ export function BoardPlay(props: BoardPlayProps) {
   }, [archive]);
 
   useEffect(() => {
+    if (!gameSanList || gameSanList.length == 0) {
+      setGameSanListNoSpoiler([]);
+      return;
+    }
+
+    if (!interestMoves || interestMoves.length == 0 || interestMoveId == undefined) {
+      setGameSanListNoSpoiler(gameSanList);
+      return;
+    }
+
+    setGameSanListNoSpoiler(gameSanList.slice(0, interestMoves[interestMoveId].moveId + 1));
+
+  }, [gameSanList, interestMoves, interestMoveId]);
+
+  useEffect(() => {
     if (!archive)
       return
+
+    // Reset the main line that we will compute again
+    setCurrMainLine([]);
+    setCurrScore(0);
 
     // Set graph
     setData(getGraphData(archive.scores, archive.missedGainPlayer, archive.mistakesPlayer, currMove));
@@ -130,22 +187,40 @@ export function BoardPlay(props: BoardPlayProps) {
     })();
   }, [archive, currMove]);
 
-  function setCurrMoveBoxed(i: number) {
-    if (!archive)
+  useEffect(() => {
+    if (!currMainLineSan || currMainLineSan.length == 0 || !showTips)
       return;
-    let newCurrMove = Math.max(0, Math.min(i, archive.moves.length - 1))
+
+    const move = board.sloppy_move_to_move(currMainLineSan[0]);
+    if (move)
+      setCustomSquareStyles({ [move.from]: { backgroundColor: 'green' } });
+  }, [showTips]);
+
+  useEffect(() => {
+    if (!currMainLineSan || currMainLineSan.length == 0 || !showSolution)
+      return;
+
+    const move = board.sloppy_move_to_move(currMainLineSan[0]);
+    if (move)
+      setCustomArrows([[move.from, move.to]])
+  }, [showSolution]);
+
+  function setCurrMoveBoxed(i: number) {
+    if (!archive || (quizzMode && interestMoveId == undefined))
+      return;
+
+    setCustomSquareStyles({});
+    setCustomArrows([]);
+    setShowTips(false);
+    setShowSolution(false);
+
+    let newCurrMove = Math.max(0, Math.min(i, quizzMode ? interestMoves[interestMoveId!].moveId : archive.moves.length - 1))
     setCurrMove(newCurrMove);
   }
 
-  function makeAMove(move: ShortMove) {
-    const gameCopy = { ...board };
-    const result = gameCopy.move(move);
-    setBoard(gameCopy);
-    return result; // null if the move was illegal, the move object if the move was legal
-  }
-
   function onDrop(sourceSquare: Square, targetSquare: Square) {
-    const move = makeAMove({
+    const gameCopy = { ...board };
+    const move = gameCopy.move({
       from: sourceSquare,
       to: targetSquare,
       promotion: 'q' // always promote to a queen for example simplicity
@@ -154,28 +229,40 @@ export function BoardPlay(props: BoardPlayProps) {
     // illegal move
     if (move === null) return false;
 
+    // Not the right move
+    if (move.san != currMainLineSan[0]) {
+      gameCopy.undo();
+      setCustomSquareStyles({ [move.from]: { backgroundColor: 'red' }, [move.to]: { backgroundColor: 'red' } });
+    } else {
+      setCustomSquareStyles({ [move.from]: { backgroundColor: 'green' }, [move.to]: { backgroundColor: 'green' } });
+      setQuizzMode(false);
+    }
+
+    setBoard(gameCopy);
     return true;
   }
 
 
   function getSanCellClass(scoreIndex: number) {
-    if (archive?.missedGainPlayer.includes(scoreIndex)) {
-      return "san-cell-missed-gain"
+    let classes = []
+    if (archive?.missedGainPlayer.includes(scoreIndex + 1)) {
+      classes.push("san-cell-missed-gain");
     }
-    if (archive?.mistakesPlayer.includes(scoreIndex)) {
-      return "san-cell-mistake"
+    else if (archive?.mistakesPlayer.includes(scoreIndex + 1)) {
+      classes.push("san-cell-mistake")
     }
+
     if (currMove == scoreIndex) {
-      return "san-cell-current"
+      classes.push("san-cell-current")
     }
-    return null;
+    return classes.join(" ");
   }
 
   function getPointColor(scoreIndex: number, missedGainPlayer: number[], mistakesPlayer: number[], currMove: number) {
-    if (missedGainPlayer.includes(scoreIndex)) {
+    if (missedGainPlayer.includes(scoreIndex + 1)) {
       return "#F2B14F"
     }
-    if (mistakesPlayer.includes(scoreIndex)) {
+    if (mistakesPlayer.includes(scoreIndex + 1)) {
       return "#D36446"
     }
     if (currMove == scoreIndex) {
@@ -232,13 +319,15 @@ export function BoardPlay(props: BoardPlayProps) {
           y: {
             display: true,
             grid: {
-              display: true
-            }
+              display: true,
+            },
+            suggestedMin: -10,
+            suggestedMax: 10,
           },
         },
         onClick: (evt: any, activeElements: any, chart: any) => {
           if (activeElements && activeElements.length) {
-            setCurrMove(activeElements[0].index);
+            setCurrMoveBoxed(activeElements[0].index);
           }
         }
       }
@@ -256,15 +345,28 @@ export function BoardPlay(props: BoardPlayProps) {
           />
         </div> : null}
         <Grid container direction="row" alignItems="start" justifyContent="start">
-          <Grid container direction="column" alignItems="center" justifyContent="space-around" sx={{ width: 600 }}>
-            <Chessboard position={board.fen()} onPieceDrop={onDrop} animationDuration={100} customArrowColor={'rgba(21, 120, 27)'} />
+          <Grid container direction="column" alignItems="center" justifyContent="space-around" sx={{ width: 500 }}>
+            <Chessboard
+              position={board.fen()}
+              onPieceDrop={onDrop}
+              animationDuration={100}
+              customArrowColor={'rgba(21, 120, 27)'}
+              boardOrientation={archive?.playingWhite ? 'white' : 'black'}
+              customSquareStyles={customSquareStyles}
+              customArrows={customArrows}
+              boardWidth={500}
+            />
           </Grid>
-          <Grid container direction="column" alignItems="center" justifyContent="start" sx={{ width: 400, height: 600 }}>
-            <Grid sx={{ my: 1, height: 50 }} className="variant-line"><b>{(currScore / 100).toFixed(2)}</b> <span className="lichess-font">{currMainLineSan.join(" ")}</span></Grid>
-            <Grid container direction="row" alignItems="center" justifyContent="start" sx={{ height: 460, overflow: "hidden", overflowY: "scroll" }}>
-              {gameSanList.map((x, i) =>
-                <Grid sx={{ width: 190, height: 30 }} className={"lichess-font san-cell " + getSanCellClass(i)} key={i} onClick={() => setCurrMove(i)}>{x}</Grid>
-              )}
+          <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ width: 300, height: 500 }}>
+            <Grid>
+              {!quizzMode ? <VariantLine currMainLineSan={currMainLineSan} currScore={currScore} currMove={currMove}></VariantLine> : <div className="quizz-indication">{archive?.playingWhite ? 'White' : 'Black'} to play, find the best move</div>}
+            </Grid>
+            <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ height: 380, overflow: "hidden", overflowY: "auto" }}>
+              <Grid container direction="row" alignItems="start" justifyContent="start">
+                {(quizzMode ? gameSanListNoSpoiler : gameSanList).map((x, i) =>
+                  <Grid sx={{ width: 140, height: 30 }} className={"lichess-font san-cell " + getSanCellClass(i)} key={i} onClick={() => setCurrMoveBoxed(i)}>{x}</Grid>
+                )}
+              </Grid>
             </Grid>
             <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
               <IconButton color="primary" aria-label="previous move" component="span" onClick={() => setCurrMoveBoxed(currMove - 1)} disabled={!archive || currMove == 0}>
@@ -279,9 +381,26 @@ export function BoardPlay(props: BoardPlayProps) {
             </Grid>
           </Grid>
         </Grid>
-
+        {archive ? <ArchiveMoveDescription archive={archive} moveId={currMove}></ArchiveMoveDescription> : null}
+        <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
+          <Link to="/" style={{ textDecoration: 'none' }}>
+            <Button variant="contained">Back to Analysis</Button>
+          </Link>
+          <Button aria-label="previous move" component="span" onClick={() => { setInterestMoveId(interestMoveId! - 1); setQuizzMode(true); }} disabled={interestMoveId == 0 || interestMoveId == undefined}>
+            Previous
+          </Button>
+          <Button variant="contained" aria-label="next move" component="span" onClick={() => { setInterestMoveId(interestMoveId! + 1); setQuizzMode(true); setShowTips(false); setShowSolution(false); }} disabled={interestMoveId == interestMoves.length - 1 || interestMoveId == undefined}>
+            Next
+          </Button>
+          {!showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!currMainLineSan || currMainLineSan.length == 0}>
+            <TipsAndUpdatesIcon />
+          </IconButton> : null}
+          {showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution || !currMainLineSan || currMainLineSan.length == 0}>
+            <QuestionMarkIcon />
+          </IconButton> : null}
+        </Grid>
       </Grid>
-    </div>
+    </div >
   )
 
 }

@@ -161,4 +161,15 @@ export type HydratedChessComArchive = ChessComArchive & {
   sfDepth: number;
 }
 
-export type TimeClass = "blitz" | "bullet" | "rapid"
+export type TimeClass = "blitz" | "bullet" | "rapid" | "standard"
+
+export type UserInfo = {
+  username: string,
+  avatar: string,
+  country: string,
+  url: string,
+  blitz: { rating: number, rd: number, percentil: number, nbGames: number },
+  bullet: { rating: number, rd: number, percentil: number, nbGames: number },
+  rapid: { rating: number, rd: number, percentil: number, nbGames: number },
+  standard: { rating: number, rd: number, percentil: number, nbGames: number },
+}

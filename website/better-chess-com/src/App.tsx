@@ -1,32 +1,35 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import { Chess, ChessInstance, ShortMove, Square } from 'chess.js'
 import {
   Chart as ChartJS, CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as TooltipChartJS,
   Legend,
   ArcElement,
   BarElement,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { StockfishService, StockfishState } from './stockfishService';
-import ChessWebAPI from 'chess-web-api';
-import { ChessComArchive, fromLichessToChessComArchive, getPgnAtMove, HydratedChessComArchive } from './ChessComArchive';
+import { ChessComArchive, getPgnAtMove, HydratedChessComArchive, TimeClass, UserInfo } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
-import { Alert, Button, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField } from '@mui/material';
+import { Alert, Button, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField, Tooltip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import ShutterSpeedOutlinedIcon from '@mui/icons-material/ShutterSpeedOutlined';
+import LocalCafeIcon from '@mui/icons-material/LocalCafe';
 import { Final, getFinal, getPiecesFromBoard, isWinningFinal } from './EndGame';
 import { getLocalCache, setLocalCache } from './CacheUtils';
 import { Statistics } from './Statistics';
 import { BoardPlay } from './BoardPlay';
 import { Route, Routes } from 'react-router-dom';
+import { Chess } from './libs/chess.js';
+import { LichessClient } from './LichessClient';
+import { ChesscomClient } from './ChesscomClient';
+import { ProfileLine } from './ProfileLine';
 
 
 enum ComputingState {
@@ -47,18 +50,19 @@ ChartJS.register(CategoryScale,
   BarElement,
   Title,
   ArcElement,
-  Tooltip,
+  TooltipChartJS,
   Legend,
   ChartDataLabels
 );
 
 function App() {
-  const algoVersion = 2;
+  const algoVersion = 3;
 
-  var chessAPI = new ChessWebAPI();
+  let chesscomClient = new ChesscomClient();
+  let lichessClient = new LichessClient();
 
   let storedGameType = localStorage.getItem('gameType') || 'rapid';
-  const [gameType, setGameType] = useState<string>(storedGameType);
+  const [gameType, setGameType] = useState<TimeClass>(storedGameType as TimeClass);
 
   let storedPlatform = localStorage.getItem('platform') || 'chesscom';
   const [platform, setPlatform] = useState<string>(storedPlatform);
@@ -77,6 +81,9 @@ function App() {
 
   const [startDate, setStartDate] = useState<Date>(new Date());
 
+  let storedUserInfo = localStorage.getItem('userInfo') || '{}';
+  const [userInfo, setUserInfo] = useState<UserInfo>(JSON.parse(storedUserInfo));
+
   const [archives, setArchives] = useState<ChessComArchive[]>();
   const [hydratedArchives, setHydratedArchives] = useState<HydratedChessComArchive[]>();
   const [computingState, setComputingState] = useState<ComputingState>(ComputingState.NotLoading);
@@ -84,16 +91,18 @@ function App() {
   const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number } }>({});
   const [stockfishServices, setStockfishServices] = useState<StockfishService[]>([]);
 
-  function getGameTypeIcon(gameType: string) {
+  function getGameTypeIcon(gameType: string, size: number = 24) {
     switch (gameType) {
       case 'rapid':
-        return (<TimerOutlinedIcon />);
+        return (<TimerOutlinedIcon sx={{ fontSize: size }} />);
       case 'blitz':
-        return (<FlashOnIcon />);
+        return (<FlashOnIcon sx={{ fontSize: size }} />);
       case 'bullet':
-        return (<ShutterSpeedOutlinedIcon />);
+        return (<ShutterSpeedOutlinedIcon sx={{ fontSize: size }} />);
+      case 'standard':
+        return (<LocalCafeIcon sx={{ fontSize: size }} />);
       default:
-        return (<TimerOutlinedIcon />);
+        return (<TimerOutlinedIcon sx={{ fontSize: size }} />);
     }
   }
 
@@ -239,7 +248,7 @@ function App() {
       doubleMoves = doubleMoves.slice(1); // Remove first element that is empty
       let lastMove = cleanedPgn2[cleanedPgn2.length - 1];
       if (lastMove.includes("\n"))
-        lastMove = lastMove.substring(0, lastMove.length - 5).trim();
+        lastMove = lastMove.replace('1-0', '').replace('0-1', '').replace('1/2-1/2', '').trim();
 
       doubleMoves[doubleMoves.length - 1] = lastMove; // We don't want to remove chars to the last element
 
@@ -275,37 +284,6 @@ function App() {
       }
     }
 
-    // Compute finals //TODO: we should take the score into account to know if the final is winning or not
-    let final: Final = Final.NoFinal
-    let previousMoveFinal: Final = Final.NoFinal
-
-    for (let archive of filteredArchives) {
-      chess.load_pgn(archive.cleanedPgn);
-      do {
-        let board = chess.board();
-
-        let { whitePieces, blackPieces } = getPiecesFromBoard(board);
-
-        final = archive.playingWhite ? getFinal(whitePieces, blackPieces) : getFinal(blackPieces, whitePieces);
-        if (final !== Final.NoFinal) {
-          let winningFinal = isWinningFinal(final);
-          if (winningFinal && previousMoveFinal === final) {
-            archive.winningFinal = final;
-          }
-
-          // We set this not a winning final or if this winning final score is either nulle or defeat we have our final
-          // We also make sure this situation stayed for 2 moves
-          if (!winningFinal && previousMoveFinal === final)
-            break;
-        }
-
-        previousMoveFinal = final;
-
-      } while (chess.undo() != null)
-
-      archive.final = final;
-    }
-
     // Compute score at each move
     setComputingState(ComputingState.AnalysingGames);
 
@@ -334,13 +312,11 @@ function App() {
         }
       }
 
-      setLoadingProgress(0);
       console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
 
       // Computaing mistakes and missed gains
       for (let archive of filteredArchives) {
         // TODO check if mate created and score was "not so bad"
-        // Maybe check if we need to remove mistakes that happened when the score was already bad
         let mistakesPlayer: number[] = [];
         let missedGainPlayer: number[] = [];
         let goodMovePlayer: number[] = [];
@@ -353,7 +329,7 @@ function App() {
         let i = 1;
         for (let score of archive.scores) {
           let whiteToPlay = i % 2 == 1;
-          if (score - prevScore > 360) {
+          if (score - prevScore > 360 && score <= 1000) {
             if (archive.playingWhite) {
               if (whiteToPlay) {
                 goodMovePlayer.push(i);
@@ -375,7 +351,7 @@ function App() {
                 }
               }
             }
-          } else if (score - prevScore < -360) {
+          } else if (score - prevScore < -360 && score >= -1000) {
             if (archive.playingWhite) {
               if (whiteToPlay) {
                 if (mistakesOpponent.includes(i - 1)) {
@@ -411,6 +387,39 @@ function App() {
         archive.goodMoveOpponent = goodMoveOpponent;
       }
 
+      // Compute finals
+      let final: Final = Final.NoFinal
+      let previousMoveFinal: Final = Final.NoFinal
+
+      for (let archive of filteredArchives) {
+        chess.load_pgn(archive.cleanedPgn);
+        let i = archive.scores.length - 1;
+        do {
+          let score = archive.scores[i];
+          let board = chess.board();
+
+          let { whitePieces, blackPieces } = getPiecesFromBoard(board);
+
+          final = archive.playingWhite ? getFinal(whitePieces, blackPieces) : getFinal(blackPieces, whitePieces);
+          if (final !== Final.NoFinal) {
+            let winningFinal = isWinningFinal(final);
+            if (winningFinal && previousMoveFinal === final && (score > 50 || score < -50)) {
+              archive.winningFinal = final;
+            }
+
+            // We set this not a winning final or if this winning final score is either nulle or defeat we have our final
+            // We also make sure this situation stayed for 2 moves
+            if (!winningFinal && previousMoveFinal === final)
+              break;
+          }
+
+          previousMoveFinal = final;
+          i--;
+        } while (chess.undo() != null)
+
+        archive.final = final;
+      }
+
       // Add the previous games to the list of hydratedArchives // TODO could be more opti
       if (hydratedArchives) {
         const hydratedArchivesFiltered = hydratedArchives.filter(a => filteredArchives.findIndex(h => h.url == a.url) == -1); // Remove the games that have been updated before the new sfDepth is greater
@@ -418,11 +427,12 @@ function App() {
       }
 
       // Caching logic
-      let monthInfo = setLocalCache(filteredArchives, gameType, userName);
+      let monthInfo = setLocalCache(filteredArchives, userName);
       setMonthsInfo(monthInfo);
 
       setHydratedArchives(filteredArchives);
       setComputingState(ComputingState.NotLoading);
+      setLoadingProgress(0);
     })();
 
   }, [archives]);
@@ -477,78 +487,38 @@ function App() {
     setStockfishServices(stockfishServices);
 
     if (platform == "chesscom") {
-      let responsePlayer;
+
+      let userNameFixed: string;
       try {
         // Fetch player info
-        responsePlayer = await chessAPI.getPlayer(userName);
-      } catch {
+        let userInfo: UserInfo = await chesscomClient.fetchUserInfo(userName);
+        setUserInfo(userInfo);
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+
+        userNameFixed = userInfo.username; // Here we fix the potential capital cases that a username can have
+        setUserName(userNameFixed);
+      } catch (error) {
+        console.error(error);
         setComputingState(ComputingState.ErrorFetchingUser);
         return;
       }
-      const userNameFixed = responsePlayer.body.url.slice(29); // Here we fix the potential capital cases that a username can have
-      setUserName(userNameFixed);
 
-      // Fetch all archives (for one month for now)
-      const startYear = startDate.getUTCFullYear();
-      const startMonth = startDate.getUTCMonth() + 1;
-      let y = startYear;
-      let m = startMonth;
-      while (y > startYear - 2) { // Set a limit to 2 years to avoid infinity loop user has less than the numbe rof asked games
-        let response = await chessAPI.getPlayerCompleteMonthlyArchives(userNameFixed, y, m);
+      // Fetch all archives
+      archiveTemp = await chesscomClient.fetchAllArchives(userNameFixed, startDate, gameType, maxNbFetchedGame);
 
-        if (archiveTemp.length + response.body.games.length >= maxNbFetchedGame) {
-          // If we reach the last call we don't take all the games from this month
-          var gamesToBeAdded = response.body.games.slice(-(maxNbFetchedGame - archiveTemp.length));
-          archiveTemp = archiveTemp.concat(gamesToBeAdded);
-          break;
-        }
-
-        archiveTemp = archiveTemp.concat(response.body.games);
-
-        if (m == 1) {
-          m = 12; y--;
-        } else {
-          m--;
-        }
-      }
     } else if (platform == "lichess") {
-      let startTime = startDate.getTime();
-      let endDateCopy = new Date(startTime);
-      endDateCopy.setMonth(endDateCopy.getMonth() - 1);
-      let endTime = endDateCopy.getTime();
-      let month = 0;
-
-      while (month < 12 * 2) { // Set a limit to 2 years to avoid infinity loop user has less than the number of asked games
-        let url = `https://lichess.org/api/games/user/${userName}?pgnInJson=true&clocks=true&opening=true&perfType=${gameType}&since=${endTime}&until=${startTime}`;
-        let response = await fetch(url, {
-          headers: {
-            'Accept': 'application/x-ndjson'
-          }
-        });
-        let res = await response.text();
-        let lines = res.split("\n");
-
-        for (let line of lines) {
-          if (!line)
-            continue;
-          let lichessArchive = JSON.parse(line);
-
-          if (lichessArchive.variant == "standard" && !!lichessArchive.moves && lichessArchive.speed === gameType) { // Filter based of game type
-            archiveTemp.push(fromLichessToChessComArchive(lichessArchive));
-            if (archiveTemp.length >= maxNbFetchedGame) {
-              month = 1000; // Easy way to break the while loop
-              break;
-            }
-          }
-        }
-
-        // Update start and end Date
-        startTime = endTime;
-        endDateCopy.setMonth(endDateCopy.getMonth() - 1);
-        endTime = endDateCopy.getTime();
-
-        month++;
+      try {
+        let userInfo = await lichessClient.fetchUserInfo(userName);
+        setUserInfo(userInfo);
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+      } catch (e) {
+        console.error(e);
+        setComputingState(ComputingState.ErrorFetchingUser);
+        return;
       }
+
+      // Fetch all archives
+      archiveTemp = await lichessClient.fetchAllArchives(userName, startDate, gameType, maxNbFetchedGame);
     }
 
     // If there si no game to compute at this point show a little message
@@ -611,7 +581,7 @@ function App() {
               label="Game type"
               defaultValue={gameType}
               onChange={(event: SelectChangeEvent) => {
-                setGameType(event.target.value);
+                setGameType(event.target.value as TimeClass);
               }}
             >
               <MenuItem value={"rapid"}>Rapid</MenuItem>
@@ -693,27 +663,30 @@ function App() {
           {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
           {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
         </div> : <>
-          <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
-            {Object.entries(monthsInfo).sort().map(([month, info]) => (
-              <ListItem className="hoverGray" key={month} secondaryAction={
-                <IconButton edge="end" aria-label="delete" onClick={() => deleteMonth(month)} disabled={computingState != ComputingState.NotLoading}>
-                  <DeleteIcon />
-                </IconButton>
-              }>
-                <ListItemIcon>
-                  {getGameTypeIcon(month.split('%')[2])}
-                </ListItemIcon>
-                <ListItemText primary={`${month.split('%')[0]} - ${month.split('%')[2]} : ${info.nbGames} ${month.split('%')[1]} games`}
-                  secondary={`Completed - 100% with Stockfish nnue depth ${info.sfDepth}`} />
-              </ListItem>))}
-          </List>
+          <Grid container direction="column" alignItems="center" justifyContent="start">
+            <ProfileLine userInfo={userInfo}></ProfileLine>
+            <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
+              {Object.entries(monthsInfo).sort().map(([month, info]) => (
+                <ListItem className="hoverGray" key={month} secondaryAction={
+                  <IconButton edge="end" aria-label="delete" onClick={() => deleteMonth(month)} disabled={LoadingStates.includes(computingState)}>
+                    <DeleteIcon />
+                  </IconButton>
+                }>
+                  <ListItemIcon>
+                    {getGameTypeIcon(month.split('%')[1])}
+                  </ListItemIcon>
+                  <ListItemText primary={`${month.split('%')[0]} - ${month.split('%')[2]} : ${info.nbGames} ${month.split('%')[1]} games`}
+                    secondary={`Completed - 100% with Stockfish nnue depth ${info.sfDepth}`} />
+                </ListItem>))}
+            </List>
+          </Grid>
           <Routes>
             <Route path="/" element={<Statistics hydratedArchives={hydratedArchives}></Statistics>} />
             <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
           </Routes>
         </>}
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 
