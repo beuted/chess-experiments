@@ -31,6 +31,7 @@ import { LichessClient } from './LichessClient';
 import { ChesscomClient } from './ChesscomClient';
 import { ProfileLine } from './ProfileLine';
 
+declare const gtag: any;
 
 enum ComputingState {
   NotLoading = 0,
@@ -311,8 +312,18 @@ function App() {
           filteredArchives[archiveId + threadId].sfDepth = sfDepth;
         }
       }
+      const timeSpent = (performance.now() - start).toFixed(3);
+      console.log(`function took ${timeSpent}ms`);
 
-      console.log(`function took ${(performance.now() - start).toFixed(3)}ms`);
+      gtag!("event", "search_end", {
+        userName: userName,
+        platform: platform,
+        gameType: gameType,
+        sfDepth: sfDepth,
+        maxNbFetchedGame: maxNbFetchedGame,
+        numberOfThreadsX2: numberOfThreadsX2,
+        timeSpent: timeSpent
+      });
 
       // Computaing mistakes and missed gains
       for (let archive of filteredArchives) {
@@ -478,6 +489,15 @@ function App() {
     localStorage.setItem('maxNbFetchedGame', String(maxNbFetchedGame));
     localStorage.setItem('numberOfThreadsX2', String(numberOfThreadsX2));
 
+    gtag!("event", "search_start", {
+      userName: userName,
+      platform: platform,
+      gameType: gameType,
+      sfDepth: sfDepth,
+      maxNbFetchedGame: maxNbFetchedGame,
+      numberOfThreadsX2: numberOfThreadsX2
+    });
+
     let archiveTemp: ChessComArchive[] = [];
 
     // Init additionnal sfServices needed
@@ -487,7 +507,6 @@ function App() {
     setStockfishServices(stockfishServices);
 
     if (platform == "chesscom") {
-
       let userNameFixed: string;
       try {
         // Fetch player info
