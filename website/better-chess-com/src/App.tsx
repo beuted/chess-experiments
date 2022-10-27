@@ -40,9 +40,11 @@ enum ComputingState {
   ErrorFetchingUser = 3,
   ErrorNoGamesFound = 4,
   AnalysingGames = 5,
+  InitStockfish = 6,
+  ErrorFetchingGames = 7,
 }
 
-const LoadingStates = [ComputingState.FetchingGames, ComputingState.ComputingStats, ComputingState.AnalysingGames]
+const LoadingStates = [ComputingState.FetchingGames, ComputingState.InitStockfish, ComputingState.ComputingStats, ComputingState.AnalysingGames]
 
 ChartJS.register(CategoryScale,
   LinearScale,
@@ -480,7 +482,7 @@ function App() {
   }
 
   async function fetchGames() {
-    setComputingState(ComputingState.FetchingGames);
+    setComputingState(ComputingState.InitStockfish);
     // Save variables choosen in localstorage
     localStorage.setItem('userName', userName);
     localStorage.setItem('platform', platform);
@@ -506,6 +508,8 @@ function App() {
     }
     setStockfishServices(stockfishServices);
 
+    setComputingState(ComputingState.FetchingGames);
+
     if (platform == "chesscom") {
       let userNameFixed: string;
       try {
@@ -523,7 +527,13 @@ function App() {
       }
 
       // Fetch all archives
-      archiveTemp = await chesscomClient.fetchAllArchives(userNameFixed, startDate, gameType, maxNbFetchedGame);
+      try {
+        archiveTemp = await chesscomClient.fetchAllArchives(userNameFixed, startDate, gameType, maxNbFetchedGame);
+      } catch (e) {
+        console.error(e);
+        setComputingState(ComputingState.ErrorFetchingGames);
+        return;
+      }
 
     } else if (platform == "lichess") {
       try {
@@ -537,7 +547,13 @@ function App() {
       }
 
       // Fetch all archives
-      archiveTemp = await lichessClient.fetchAllArchives(userName, startDate, gameType, maxNbFetchedGame);
+      try {
+        archiveTemp = await lichessClient.fetchAllArchives(userName, startDate, gameType, maxNbFetchedGame);
+      } catch (e) {
+        console.error(e);
+        setComputingState(ComputingState.ErrorFetchingGames);
+        return;
+      }
     }
 
     // If there si no game to compute at this point show a little message
@@ -673,12 +689,14 @@ function App() {
             {LoadingStates.includes(computingState) ? "Computing..." : "Compute"}
           </Button>
         </Grid>
-        {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching games for this user</Alert> : null}
+        {computingState == ComputingState.ErrorFetchingUser ? <Alert severity="error">Error fetching user information</Alert> : null}
+        {computingState == ComputingState.ErrorFetchingGames ? <Alert severity="error">Error fetching games for this user</Alert> : null}
         {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
 
         {(!hydratedArchives || hydratedArchives.length == 0) ? <div>
           {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
           {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
+          {computingState == ComputingState.InitStockfish ? <p>Initializing stockfish web workers</p> : null}
           {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
           {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
         </div> : <>

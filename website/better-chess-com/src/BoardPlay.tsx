@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getPgnAtMove, HydratedChessComArchive } from "./ChessComArchive";
 import { Line } from 'react-chartjs-2';
 import { Chessboard, CustomSquareStyles } from "react-chessboard";
-import { Button, Grid, IconButton } from "@mui/material";
+import { Button, Grid, IconButton, Tooltip } from "@mui/material";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -375,9 +375,13 @@ export function BoardPlay(props: BoardPlayProps) {
               <IconButton color="primary" aria-label="play moves" component="span">
                 <PlayArrowIcon />
               </IconButton>
-              <IconButton color="primary" aria-label="next move" component="span" onClick={() => setCurrMoveBoxed(currMove + 1)} disabled={!archive || currMove == archive.moves.length - 1}>
-                <ArrowForwardIosIcon />
-              </IconButton>
+              <Tooltip title={quizzMode && currMove == interestMoves[interestMoveId!]?.moveId ? "Solve the problem to see the rest of the game" : ""} arrow>
+                <span>
+                  <IconButton color="primary" aria-label="next move" component="span" onClick={() => setCurrMoveBoxed(currMove + 1)} disabled={!archive || currMove >= (quizzMode ? interestMoves[interestMoveId!].moveId : archive.moves.length - 1)}>
+                    <ArrowForwardIosIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Grid>
           </Grid>
         </Grid>
