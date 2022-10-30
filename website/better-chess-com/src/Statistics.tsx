@@ -40,14 +40,16 @@ export function Statistics(props: StatisticsProps) {
 
 
   return (<>
-    <Openings archives={props.hydratedArchives} setTableFilters={setTableFilters}></Openings>
-    <TimeManagement archives={props.hydratedArchives}></TimeManagement>
-    <EndGame archives={props.hydratedArchives} setTableFilters={setTableFilters}></EndGame>
-    <Tactics archives={props.hydratedArchives}></Tactics>
-    <Advantage archives={props.hydratedArchives}></Advantage>
+    {props.hydratedArchives && props.hydratedArchives.length ? <>
+      <Openings archives={props.hydratedArchives} setTableFilters={setTableFilters}></Openings>
+      <TimeManagement archives={props.hydratedArchives}></TimeManagement>
+      <EndGame archives={props.hydratedArchives} setTableFilters={setTableFilters}></EndGame>
+      <Tactics archives={props.hydratedArchives}></Tactics>
+      <Advantage archives={props.hydratedArchives}></Advantage>
 
-    <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
-      <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>
-    </div>
+      <div id="games-table" style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
+        <GamesTable gridRow={gridRow} filters={tableFilters} setTableFilters={setTableFilters}></GamesTable>
+      </div>
+    </> : null}
   </>);
 }

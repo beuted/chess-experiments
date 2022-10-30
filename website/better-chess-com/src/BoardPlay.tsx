@@ -336,75 +336,77 @@ export function BoardPlay(props: BoardPlayProps) {
 
   return (
     <div>
-      <Grid container direction="column" alignItems="center" justifyContent="space-around">
-        {data ? <div style={{ width: "800px", height: "150px" }}>
-          <Line
-            datasetIdKey='id'
-            data={data}
-            options={data.options}
-          />
-        </div> : null}
-        <Grid container direction="row" alignItems="start" justifyContent="start">
-          <Grid container direction="column" alignItems="center" justifyContent="space-around" sx={{ width: 500 }}>
-            <Chessboard
-              position={board.fen()}
-              onPieceDrop={onDrop}
-              animationDuration={100}
-              customArrowColor={'rgba(21, 120, 27)'}
-              boardOrientation={archive?.playingWhite ? 'white' : 'black'}
-              customSquareStyles={customSquareStyles}
-              customArrows={customArrows}
-              boardWidth={500}
+      {props.hydratedArchives && props.hydratedArchives.length ? <>
+        <Grid container direction="column" alignItems="center" justifyContent="space-around">
+          {data ? <div style={{ width: "800px", height: "150px" }}>
+            <Line
+              datasetIdKey='id'
+              data={data}
+              options={data.options}
             />
-          </Grid>
-          <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ width: 300, height: 500 }}>
-            <Grid>
-              {!quizzMode ? <VariantLine currMainLineSan={currMainLineSan} currScore={currScore} currMove={currMove}></VariantLine> : <div className="quizz-indication">{archive?.playingWhite ? 'White' : 'Black'} to play, find the best move</div>}
+          </div> : null}
+          <Grid container direction="row" alignItems="start" justifyContent="start">
+            <Grid container direction="column" alignItems="center" justifyContent="space-around" sx={{ width: 500 }}>
+              <Chessboard
+                position={board.fen()}
+                onPieceDrop={onDrop}
+                animationDuration={100}
+                customArrowColor={'rgba(21, 120, 27)'}
+                boardOrientation={archive?.playingWhite ? 'white' : 'black'}
+                customSquareStyles={customSquareStyles}
+                customArrows={customArrows}
+                boardWidth={500}
+              />
             </Grid>
-            <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ height: 380, overflow: "hidden", overflowY: "auto" }}>
-              <Grid container direction="row" alignItems="start" justifyContent="start">
-                {(quizzMode ? gameSanListNoSpoiler : gameSanList).map((x, i) =>
-                  <Grid sx={{ width: 140, height: 30 }} className={"lichess-font san-cell " + getSanCellClass(i)} key={i} onClick={() => setCurrMoveBoxed(i)}>{x}</Grid>
-                )}
+            <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ width: 300, height: 500 }}>
+              <Grid>
+                {!quizzMode ? <VariantLine currMainLineSan={currMainLineSan} currScore={currScore} currMove={currMove}></VariantLine> : <div className="quizz-indication">{archive?.playingWhite ? 'White' : 'Black'} to play, find the best move</div>}
+              </Grid>
+              <Grid container direction="row" alignItems="start" justifyContent="start" sx={{ height: 380, overflow: "hidden", overflowY: "auto" }}>
+                <Grid container direction="row" alignItems="start" justifyContent="start">
+                  {(quizzMode ? gameSanListNoSpoiler : gameSanList).map((x, i) =>
+                    <Grid sx={{ width: 140, height: 30 }} className={"lichess-font san-cell " + getSanCellClass(i)} key={i} onClick={() => setCurrMoveBoxed(i)}>{x}</Grid>
+                  )}
+                </Grid>
+              </Grid>
+              <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
+                <IconButton color="primary" aria-label="previous move" component="span" onClick={() => setCurrMoveBoxed(currMove - 1)} disabled={!archive || currMove == 0}>
+                  <ArrowBackIosIcon />
+                </IconButton>
+                <IconButton color="primary" aria-label="play moves" component="span">
+                  <PlayArrowIcon />
+                </IconButton>
+                <Tooltip title={quizzMode && currMove == interestMoves[interestMoveId!]?.moveId ? "Solve the problem to see the rest of the game" : ""} arrow>
+                  <span>
+                    <IconButton color="primary" aria-label="next move" component="span" onClick={() => setCurrMoveBoxed(currMove + 1)} disabled={!archive || currMove >= (quizzMode ? interestMoves[interestMoveId!].moveId : archive.moves.length - 1)}>
+                      <ArrowForwardIosIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Grid>
             </Grid>
-            <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
-              <IconButton color="primary" aria-label="previous move" component="span" onClick={() => setCurrMoveBoxed(currMove - 1)} disabled={!archive || currMove == 0}>
-                <ArrowBackIosIcon />
-              </IconButton>
-              <IconButton color="primary" aria-label="play moves" component="span">
-                <PlayArrowIcon />
-              </IconButton>
-              <Tooltip title={quizzMode && currMove == interestMoves[interestMoveId!]?.moveId ? "Solve the problem to see the rest of the game" : ""} arrow>
-                <span>
-                  <IconButton color="primary" aria-label="next move" component="span" onClick={() => setCurrMoveBoxed(currMove + 1)} disabled={!archive || currMove >= (quizzMode ? interestMoves[interestMoveId!].moveId : archive.moves.length - 1)}>
-                    <ArrowForwardIosIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </Grid>
+          </Grid>
+          {archive ? <ArchiveMoveDescription archive={archive} moveId={currMove}></ArchiveMoveDescription> : null}
+          <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
+            <Link to="/" style={{ textDecoration: 'none' }}>
+              <Button variant="contained">Back to Analysis</Button>
+            </Link>
+            <Button aria-label="previous move" component="span" onClick={() => { setInterestMoveId(interestMoveId! - 1); setQuizzMode(true); }} disabled={interestMoveId == 0 || interestMoveId == undefined}>
+              Previous
+            </Button>
+            <Button variant="contained" aria-label="next move" component="span" onClick={() => { setInterestMoveId(interestMoveId! + 1); setQuizzMode(true); setShowTips(false); setShowSolution(false); }} disabled={interestMoveId == interestMoves.length - 1 || interestMoveId == undefined}>
+              Next
+            </Button>
+            {!showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!currMainLineSan || currMainLineSan.length == 0}>
+              <TipsAndUpdatesIcon />
+            </IconButton> : null}
+            {showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution || !currMainLineSan || currMainLineSan.length == 0}>
+              <QuestionMarkIcon />
+            </IconButton> : null}
           </Grid>
         </Grid>
-        {archive ? <ArchiveMoveDescription archive={archive} moveId={currMove}></ArchiveMoveDescription> : null}
-        <Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ height: 50 }}>
-          <Link to="/" style={{ textDecoration: 'none' }}>
-            <Button variant="contained">Back to Analysis</Button>
-          </Link>
-          <Button aria-label="previous move" component="span" onClick={() => { setInterestMoveId(interestMoveId! - 1); setQuizzMode(true); }} disabled={interestMoveId == 0 || interestMoveId == undefined}>
-            Previous
-          </Button>
-          <Button variant="contained" aria-label="next move" component="span" onClick={() => { setInterestMoveId(interestMoveId! + 1); setQuizzMode(true); setShowTips(false); setShowSolution(false); }} disabled={interestMoveId == interestMoves.length - 1 || interestMoveId == undefined}>
-            Next
-          </Button>
-          {!showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!currMainLineSan || currMainLineSan.length == 0}>
-            <TipsAndUpdatesIcon />
-          </IconButton> : null}
-          {showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution || !currMainLineSan || currMainLineSan.length == 0}>
-            <QuestionMarkIcon />
-          </IconButton> : null}
-        </Grid>
-      </Grid>
-    </div >
+      </> : null}
+    </div>
   )
 
 }

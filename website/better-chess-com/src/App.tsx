@@ -30,19 +30,10 @@ import { Chess } from './libs/chess.js';
 import { LichessClient } from './LichessClient';
 import { ChesscomClient } from './ChesscomClient';
 import { ProfileLine } from './ProfileLine';
+import { Preparation } from './Preparation';
+import { ComputingState, ComputingStateInfo } from './ComputingStateInfo';
 
 declare const gtag: any;
-
-enum ComputingState {
-  NotLoading = 0,
-  FetchingGames = 1,
-  ComputingStats = 2,
-  ErrorFetchingUser = 3,
-  ErrorNoGamesFound = 4,
-  AnalysingGames = 5,
-  InitStockfish = 6,
-  ErrorFetchingGames = 7,
-}
 
 const LoadingStates = [ComputingState.FetchingGames, ComputingState.InitStockfish, ComputingState.ComputingStats, ComputingState.AnalysingGames]
 
@@ -76,7 +67,7 @@ function App() {
   let storedSfDepth = localStorage.getItem('sfDepth') || '10';
   const [sfDepth, setSfDepth] = useState<number>(Number(storedSfDepth));
 
-  let storedMaxNbFetchedGame = localStorage.getItem('maxNbFetchedGame') || '100';
+  let storedMaxNbFetchedGame = localStorage.getItem('maxNbFetchedGame') || '50';
   const [maxNbFetchedGame, setMaxNbFetchedGame] = useState<number>(Number(storedMaxNbFetchedGame));
 
   let storedNumberOfThreadsX2 = localStorage.getItem('numberOfThreadsX2') || '2';
@@ -138,40 +129,6 @@ function App() {
     setHydratedArchives(Array.from(hydratedArchives!));
   }
 
-  async function fetchStudy() {
-    const chess = new Chess();
-    let studyId = "GtNC7kF0";
-    var response = await fetch(`https://lichess.org/api/study/${studyId}.pgn`);
-    var txt = await response.text();
-
-    let chapters = txt.split("[Event ").map(x => "[Event " + x);
-    chapters.shift();
-
-    for (let chapter of chapters) {
-      let cleanedChaper = '1.' + chapter.split("\n\n1.")[1]; // TODO: Careful this could blow up if there is commetn in one chapter with "1." in it...
-      chess.load_pgn(cleanedChaper);
-      let lastFen = chess.fen();
-      let node = { fen: lastFen, next: [] as any[] }
-
-      var pgn = cleanedChaper;
-      while (true) {
-        if (pgn.lastIndexOf(" ") === -1)
-          break;
-
-        pgn = pgn.substring(0, pgn.lastIndexOf(" "));
-        chess.load_pgn(pgn);
-        let fen = chess.fen();
-        if (lastFen == fen) {
-          continue;
-        }
-
-        node = { fen: chess.fen(), next: [node] }
-
-        lastFen = fen;
-      }
-    }
-  }
-
   useEffect(() => {
     // Read cache logic when loading the page
     let algoVersionStorage = localStorage.getItem('algoVersion');
@@ -205,7 +162,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    //fetchStudy();
     const chess = new Chess();
     // Page just loaded
     if (!archives) {
@@ -693,13 +649,9 @@ function App() {
         {computingState == ComputingState.ErrorFetchingGames ? <Alert severity="error">Error fetching games for this user</Alert> : null}
         {computingState == ComputingState.ErrorNoGamesFound ? <Alert severity="warning">No games were found for the selected filters</Alert> : null}
 
-        {(!hydratedArchives || hydratedArchives.length == 0) ? <div>
-          {computingState == ComputingState.NotLoading ? <p>Enter your username and select a time range</p> : null}
-          {computingState == ComputingState.FetchingGames ? <p>Fetching games</p> : null}
-          {computingState == ComputingState.InitStockfish ? <p>Initializing stockfish web workers</p> : null}
-          {computingState == ComputingState.ComputingStats ? <p>Computing statistics</p> : null}
-          {computingState == ComputingState.AnalysingGames ? <p>Analysing {archives?.length} games with stockfish nnue depth {sfDepth}</p> : null}
-        </div> : <>
+        {(!hydratedArchives || hydratedArchives.length == 0) ?
+          <ComputingStateInfo computingState={computingState} archivesLength={archives?.length} sfDepth={sfDepth}></ComputingStateInfo>
+          :
           <Grid container direction="column" alignItems="center" justifyContent="start">
             <ProfileLine userInfo={userInfo}></ProfileLine>
             <List dense={true} sx={{ py: 3, width: "100%", maxWidth: 600, mb: 2 }}>
@@ -717,11 +669,12 @@ function App() {
                 </ListItem>))}
             </List>
           </Grid>
-          <Routes>
-            <Route path="/" element={<Statistics hydratedArchives={hydratedArchives}></Statistics>} />
-            <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
-          </Routes>
-        </>}
+        }
+        <Routes>
+          <Route path="/" element={<Statistics hydratedArchives={hydratedArchives}></Statistics>} />
+          <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
+          <Route path="preparation" element={<Preparation></Preparation>} />
+        </Routes>
       </div >
     </div >
   );
