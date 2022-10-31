@@ -3,20 +3,21 @@ import { useEffect, useState } from "react";
 import { getPgnAtMove, HydratedChessComArchive } from "./ChessComArchive";
 import { Line } from 'react-chartjs-2';
 import { Chessboard, CustomSquareStyles } from "react-chessboard";
-import { Accordion, AccordionDetails, AccordionSummary, Button, Grid, IconButton, List, ListItem, ListItemText, TextField, Tooltip, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Button, CircularProgress, Grid, IconButton, List, ListItem, ListItemText, TextField, Tooltip, Typography } from "@mui/material";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import { StockfishService, StockfishState } from "./stockfishService";
-import { useKeyPress } from './ReactHelpers';
+import { debounce, useKeyPress } from './ReactHelpers';
 import { ArchiveMoveDescription } from './ArchiveMoveDescription';
 import { VariantLine } from './VariantLine';
 import { Chess, ChessInstance, Move, Square } from './libs/chess.js';
 import { Link } from "react-router-dom";
 import FlipCameraAndroidIcon from '@mui/icons-material/FlipCameraAndroid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { SuccessAnimationIcon } from './SuccessAnimationIcon';
 
@@ -43,11 +44,28 @@ export function Preparation(props: PreparationProps) {
   const [studyUrl, setStudyUrl] = useState<string | null>(studyUrlStored); // Stored in localstorage
   const [availableBlackStudy, setAvailableBlackStudy] = useState<boolean>(false);
   const [availableWhiteStudy, setAvailableWhiteStudy] = useState<boolean>(false);
+  const [dimensions, setDimensions] = useState({ height: window.innerHeight, width: window.innerWidth });
+
+  useEffect(() => {
+    const debouncedHandleResize = debounce(function handleResize() {
+      setDimensions({
+        height: window.innerHeight,
+        width: window.innerWidth
+      })
+    }, 500)
+
+    window.addEventListener('resize', debouncedHandleResize)
+
+    return () => {
+      window.removeEventListener('resize', debouncedHandleResize)
+
+    }
+  })
 
   useEffect(() => {
     // If study was saved in the store fetch it again
     if (studyUrl)
-      fetchStudy();
+      fetchStudy(studyUrl);
 
     const gameCopy = { ...board };
     gameCopy.clear();
@@ -132,7 +150,7 @@ export function Preparation(props: PreparationProps) {
   }, [chapterOrientation]);
 
 
-  async function fetchStudy() {
+  async function fetchStudy(studyUrl: string | null) {
     if (!studyUrl)
       return;
 
@@ -213,7 +231,6 @@ export function Preparation(props: PreparationProps) {
     localStorage.setItem('chapterOrientation', '[]');
     setChapterOrientation([]);
 
-    console.log(allChapterLines);
     setChapterLines(allChapterLines);
     const studyTitle = allChapterLines[0].title?.split(":")[0];
     setStudyTitle(studyTitle);
@@ -391,30 +408,76 @@ export function Preparation(props: PreparationProps) {
     localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientationCopy));
   }
 
+  function setStudyPreset(preset: "scotish" | "caro-kann" | "london-system") {
+    let url: string
+    switch (preset) {
+      case "scotish": url = "https://lichess.org/study/5lXHRUcX"; break;
+      case "caro-kann": url = "https://lichess.org/study/IZ2Z759V"; break;
+      case "london-system": url = "https://lichess.org/study/l2k2wax3"; break;
+    }
+
+    setStudyUrl(url);
+    fetchStudy(url);
+  }
+
+  function deleteStudy() {
+    setStudyUrl(null);
+    setChapterLines([]);
+    setChapterOrientation([]);
+    setChapterFens([]);
+    setChapterMoves([]);
+
+    setShowSuccess(null);
+    setCustomSquareStyles({});
+    setCustomArrows([]);
+    setShowTips(false);
+    setShowSolution(false);
+    setNextPlayerMove(null);
+    setStudyTitle("");
+
+    const gameCopy = { ...board };
+    gameCopy.clear();
+    setBoard(gameCopy);
+  }
+
   return (
-    <div>
-      <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="space-between">
-        <Tooltip title="Provide a lichess study to start the training. See: https://lichess.org/study">
-          <TextField label="Lichess study"
-            defaultValue={''} //
-            placeholder="https://lichess.org/study/XXXXXXXX"
-            variant="outlined"
-            size="small"
-            sx={{ width: 150, m: 1, flexGrow: 1 }}
-            onChange={event => {
-              setStudyUrl(event.target.value);
-            }} />
-        </Tooltip>
-        <Button variant="contained" aria-label="Fetch Study" onClick={fetchStudy} disabled={!studyUrl}>Fetch Study</Button>
-      </Grid>
-      {studyTitle ? <Grid sx={{ mb: 2, width: 600 }}>
-        <Accordion>
+    <Grid direction="column" container className="preparation-container">
+      {!studyUrl ? <>
+        <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="space-between">
+          <Tooltip title="Provide a lichess study to start the training. See: https://lichess.org/study">
+            <TextField label="Lichess study"
+              defaultValue={''} //
+              placeholder="https://lichess.org/study/XXXXXXXX"
+              variant="outlined"
+              size="small"
+              value={studyUrl}
+              sx={{ width: 150, m: 1, flexGrow: 1 }}
+              onChange={event => {
+                setStudyUrl(event.target.value);
+              }} />
+          </Tooltip>
+          <Button variant="contained" aria-label="Fetch Study" onClick={() => fetchStudy(studyUrl)} disabled={!studyUrl}>Fetch Study</Button>
+        </Grid>
+        <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="start">
+          <Button size="small" variant="outlined" aria-label="Scotish" onClick={() => setStudyPreset("scotish")}>Scotish</Button>
+          <Button size="small" variant="outlined" aria-label="Caro-Kann" onClick={() => setStudyPreset("caro-kann")} sx={{ ml: 2 }}>Caro-Kann</Button>
+          <Button size="small" variant="outlined" aria-label="London System" onClick={() => setStudyPreset("london-system")} sx={{ ml: 2 }}>London System</Button>
+        </Grid>
+      </> : null}
+      {studyUrl && !studyTitle ? <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="center"><CircularProgress /></Grid> : null}
+      {studyTitle ? <Grid container sx={{ mb: 2 }}>
+        <Accordion sx={{ flexGrow: 1 }}>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
             aria-controls="panel1a-content"
           >
             <Tooltip title="We try to compute the side that is studied for each chapter but you should specify it manually if needed. The value will be stored for your next visit.">
-              <Typography>Study: {studyTitle}</Typography>
+              <Grid container direction="row" alignItems="center" justifyContent="space-between">
+                <Typography>Study: {studyTitle}</Typography>
+                <IconButton color="primary" aria-label="delete" component="span" onClick={() => { deleteStudy() }} disabled={showSolution}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Grid>
             </Tooltip>
           </AccordionSummary>
           <AccordionDetails>
@@ -434,7 +497,7 @@ export function Preparation(props: PreparationProps) {
       </Grid> : null
       }
 
-      <div className="chessboard-container" >
+      <Grid className="chessboard-container" >
         <Chessboard
           position={board.fen()}
           onPieceDrop={onDrop}
@@ -443,27 +506,33 @@ export function Preparation(props: PreparationProps) {
           boardOrientation={boardOrientation}
           customSquareStyles={customSquareStyles}
           customArrows={customArrows}
-          boardWidth={600}
+          boardWidth={Math.min(600, dimensions.width - 30)}
         />
-        <Grid container direction="row" alignItems="center" justifyContent="center" className={"success-check-icon-container " + (showSuccess ? "visible" : "")}>
+        <Grid container direction="column" alignItems="center" justifyContent="center" className={"success-check-icon-container " + (showSuccess || showSuccess == null ? "visible" : "")} style={{ width: Math.min(600, dimensions.width - 30), height: Math.min(600, dimensions.width - 30) }}>
           {showSuccess ? <SuccessAnimationIcon></SuccessAnimationIcon> : null}
+          <Grid container direction="row" alignItems="center" justifyContent="space-around">
+            <IconButton color="primary" aria-label="Start as black" onClick={startAsBlack} disabled={!chapterLines?.length || !availableBlackStudy}>
+              <img className="start-side-img" src="./black-king.svg"></img>
+            </IconButton>
+            <IconButton color="primary" aria-label="Start as white" onClick={startAsWhite} disabled={!chapterLines?.length || !availableWhiteStudy}>
+              <img className="start-side-img" src="./white-king.svg"></img>
+            </IconButton>
+          </Grid>
         </Grid>
-      </div>
-      <Grid container direction="row" alignItems="center" justifyContent="space-between" sx={{ my: 2 }}>
-        <Button variant="contained" aria-label="Start as black" onClick={startAsBlack} disabled={!chapterLines?.length || !availableBlackStudy}>Start as black</Button>
-        <Button variant="contained" aria-label="Start as white" onClick={startAsWhite} disabled={!chapterLines?.length || !availableWhiteStudy}>Start as white</Button>
+      </Grid>
+      <Grid container direction="row" alignItems="center" justifyContent="end" sx={{ my: 2 }}>
         {
-          !showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!nextPlayerMove}>
-            <TipsAndUpdatesIcon />
-          </IconButton> : null
+          !showTips ? <Tooltip enterDelay={700} title="Show help"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!nextPlayerMove}>
+            <TipsAndUpdatesIcon fontSize="large" />
+          </IconButton></Tooltip> : null
         }
         {
-          showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution}>
-            <QuestionMarkIcon />
-          </IconButton> : null
+          showTips ? <Tooltip enterDelay={700} title="Show solution"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution}>
+            <QuestionMarkIcon fontSize="large" />
+          </IconButton></Tooltip> : null
         }
       </Grid>
-    </div>
+    </Grid >
   )
 
 }

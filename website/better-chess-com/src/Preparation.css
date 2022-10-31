@@ -2,6 +2,15 @@
   width: 30px;
 }
 
+.start-side-img {
+  width: 80px;
+  opacity: 1;
+}
+
+button:disabled>.start-side-img {
+  opacity: 0.5;
+}
+
 .chessboard-container {
   position: relative;
 }
@@ -12,15 +21,22 @@
   position: absolute;
 
   background-color: rgb(0, 0, 0, 0);
-  height: 0px;
-  width: 0px;
   visibility: hidden;
   transition: background-color 0.3s ease-in-out;
 }
 
+
 .success-check-icon-container.visible {
-  width: 600px;
-  height: 600px;
   visibility: visible;
-  background-color: rgb(0, 0, 0, 0.2);
+  background-color: rgb(0, 0, 0, 0.6);
+}
+
+.preparation-container {
+  max-width: calc(100% - 30px);
+}
+
+@media screen and (min-width: 600px) {
+  .preparation-container {
+    max-width: 600px;
+  }
 }

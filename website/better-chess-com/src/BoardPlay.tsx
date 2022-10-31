@@ -398,10 +398,10 @@ export function BoardPlay(props: BoardPlayProps) {
               Next
             </Button>
             {!showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!currMainLineSan || currMainLineSan.length == 0}>
-              <TipsAndUpdatesIcon />
+              <TipsAndUpdatesIcon fontSize="large" />
             </IconButton> : null}
             {showTips ? <IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution || !currMainLineSan || currMainLineSan.length == 0}>
-              <QuestionMarkIcon />
+              <QuestionMarkIcon fontSize="large" />
             </IconButton> : null}
           </Grid>
         </Grid>

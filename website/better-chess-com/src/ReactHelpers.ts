@@ -27,3 +27,14 @@ export const useKeyPress = function (targetKey: string) {
 
   return keyPressed;
 };
+
+export function debounce(fn: Function, ms: number) {
+  let timer: NodeJS.Timeout | null;
+  return () => {
+    if (timer != null) clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = null
+      fn();
+    }, ms)
+  };
+}
