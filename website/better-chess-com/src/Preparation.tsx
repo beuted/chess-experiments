@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getPgnAtMove, HydratedChessComArchive } from "./ChessComArchive";
 import { Line } from 'react-chartjs-2';
 import { Chessboard, CustomSquareStyles } from "react-chessboard";
-import { Accordion, AccordionDetails, AccordionSummary, Button, CircularProgress, Grid, IconButton, List, ListItem, ListItemText, TextField, Tooltip, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Button, CircularProgress, Grid, IconButton, List, ListItem, ListItemText, TextField, Tooltip, Typography } from "@mui/material";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -28,7 +28,7 @@ export function Preparation(props: PreparationProps) {
 
   const [chapterLines, setChapterLines] = useState<{ title: string | undefined, fen: string | undefined, lines: string[] }[]>([]);
   const chapterOrientationStored = JSON.parse(localStorage.getItem('chapterOrientation') || '[]'); // Stored in localstorage
-  const [chapterOrientation, setChapterOrientation] = useState<{ orientation: string }[]>(chapterOrientationStored);
+  const [chapterOrientation, setChapterOrientation] = useState<{ orientation: "white" | "black" | null }[]>(chapterOrientationStored);
   const [chapterFens, setChapterFens] = useState<{ fens: string[][] }[]>([]);
   const [chapterMoves, setChapterMoves] = useState<{ moves: Move[][] }[]>([]);
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
@@ -40,8 +40,10 @@ export function Preparation(props: PreparationProps) {
   const [showSolution, setShowSolution] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean | null>(null);
   const [nextPlayerMove, setNextPlayerMove] = useState<Move | null>();
-  const studyUrlStored = localStorage.getItem('studyUrl') || null;
-  const [studyUrl, setStudyUrl] = useState<string | null>(studyUrlStored); // Stored in localstorage
+  const studyUrlStored = localStorage.getItem('studyUrl') || undefined;
+  const [studyUrl, setStudyUrl] = useState<string | undefined>(studyUrlStored); // Stored in localstorage
+  const [studyError, setStudyError] = useState<string | null>(null);
+  const [studyLoading, setStudyLoading] = useState<boolean>(false);
   const [availableBlackStudy, setAvailableBlackStudy] = useState<boolean>(false);
   const [availableWhiteStudy, setAvailableWhiteStudy] = useState<boolean>(false);
   const [dimensions, setDimensions] = useState({ height: window.innerHeight, width: window.innerWidth });
@@ -105,7 +107,7 @@ export function Preparation(props: PreparationProps) {
     if (chapterOrientation && chapterOrientation.length > 0) {
       //nono
     } else {
-      const newChapterOrientation = chapterMoves.map(chapter => {
+      const newChapterOrientation: { orientation: "white" | "black" | null }[] = chapterMoves.map(chapter => {
         let moveIndex = 0;
         while (true) {
           let move = chapter.moves[0][moveIndex];
@@ -150,10 +152,12 @@ export function Preparation(props: PreparationProps) {
   }, [chapterOrientation]);
 
 
-  async function fetchStudy(studyUrl: string | null) {
+  async function fetchStudy(studyUrl: string | undefined) {
     if (!studyUrl)
       return;
 
+    setStudyError(null);
+    setStudyLoading(true);
     // Parse the studyId from the input
     let studyId: string;
     let splittedStudyUrl = studyUrl.split('/study/');
@@ -170,7 +174,20 @@ export function Preparation(props: PreparationProps) {
       let response = await fetch(`https://lichess.org/api/study/${studyId}.pgn?comments=false&clocks=false`);
       txt = await response.text();
     } catch (e) {
+      setStudyUrl(undefined);
+      setStudyLoading(false);
+
+      localStorage.setItem('studyUrl', '');
       console.error("Could not fetch study with id", studyId);
+      setStudyError("study fetching error");
+      return;
+    }
+    if (txt.startsWith('{"error":')) {
+      setStudyUrl(undefined);
+      setStudyLoading(false);
+      localStorage.setItem('studyUrl', '');
+      console.error("Could not fetch study with id", studyId, txt);
+      setStudyError(txt);
       return;
     }
 
@@ -239,7 +256,10 @@ export function Preparation(props: PreparationProps) {
     const gameCopy = { ...board };
     gameCopy.clear();
     setBoard(gameCopy);
-    setShowSuccess(null)
+    setShowSuccess(null);
+    setStudyLoading(false);
+
+    return allChapterLines;
   }
 
   function startAsWhite() {
@@ -349,7 +369,6 @@ export function Preparation(props: PreparationProps) {
       return true;
     }
     let { iChapter, iLine, iFen } = result;
-    console.log(iChapter, iLine, iFen);
 
     let opponentMove = chapterMoves[iChapter].moves[iLine][iFen];
     let nextPlayerMove = chapterMoves[iChapter].moves[iLine][iFen + 1];
@@ -403,25 +422,39 @@ export function Preparation(props: PreparationProps) {
 
   function toggleChapterOrientationItem(i: number) {
     let chapterOrientationCopy = Array.from(chapterOrientation);
-    chapterOrientationCopy[i].orientation = chapterOrientationCopy[i].orientation == "white" ? "black" : "white";
+
+    let newValue: 'white' | 'black' | null;
+    if (chapterOrientationCopy[i].orientation == 'white')
+      newValue = 'black';
+    else if (chapterOrientationCopy[i].orientation == 'black')
+      newValue = null;
+    else
+      newValue = 'white';
+
+    chapterOrientationCopy[i].orientation = newValue;
+
     setChapterOrientation(chapterOrientationCopy);
     localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientationCopy));
   }
 
-  function setStudyPreset(preset: "scotish" | "caro-kann" | "london-system") {
+  async function setStudyPreset(preset: 'scotish' | 'caro-kann' | 'london-system') {
     let url: string
+    let orientation: 'white' | 'black'
     switch (preset) {
-      case "scotish": url = "https://lichess.org/study/5lXHRUcX"; break;
-      case "caro-kann": url = "https://lichess.org/study/IZ2Z759V"; break;
-      case "london-system": url = "https://lichess.org/study/l2k2wax3"; break;
+      case 'scotish': url = 'https://lichess.org/study/iGvRBCsI'; orientation = 'white'; break;
+      case 'caro-kann': url = 'https://lichess.org/study/IZ2Z759V'; orientation = 'black'; break;
+      case 'london-system': url = 'https://lichess.org/study/4sG72RkJ'; orientation = 'white'; break;
     }
 
     setStudyUrl(url);
-    fetchStudy(url);
+    let allChapterLines = await fetchStudy(url);
+    if (!allChapterLines)
+      return;
+    setChapterOrientation(allChapterLines.map(x => ({ orientation: orientation })));
   }
 
   function deleteStudy() {
-    setStudyUrl(null);
+    setStudyUrl(undefined);
     setChapterLines([]);
     setChapterOrientation([]);
     setChapterFens([]);
@@ -435,6 +468,9 @@ export function Preparation(props: PreparationProps) {
     setNextPlayerMove(null);
     setStudyTitle("");
 
+    localStorage.setItem('studyUrl', '');
+    localStorage.setItem('chapterOrientation', '[]');
+
     const gameCopy = { ...board };
     gameCopy.clear();
     setBoard(gameCopy);
@@ -442,15 +478,14 @@ export function Preparation(props: PreparationProps) {
 
   return (
     <Grid direction="column" container className="preparation-container">
-      {!studyUrl ? <>
-        <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="space-between">
+      {!studyTitle && !studyLoading ? <>
+        <Grid container sx={{ mb: 1 }} direction="row" alignItems="center" justifyContent="space-between">
           <Tooltip title="Provide a lichess study to start the training. See: https://lichess.org/study">
             <TextField label="Lichess study"
-              defaultValue={''} //
               placeholder="https://lichess.org/study/XXXXXXXX"
               variant="outlined"
               size="small"
-              value={studyUrl}
+              value={studyUrl || ''}
               sx={{ width: 150, m: 1, flexGrow: 1 }}
               onChange={event => {
                 setStudyUrl(event.target.value);
@@ -458,13 +493,14 @@ export function Preparation(props: PreparationProps) {
           </Tooltip>
           <Button variant="contained" aria-label="Fetch Study" onClick={() => fetchStudy(studyUrl)} disabled={!studyUrl}>Fetch Study</Button>
         </Grid>
+        {studyError ? <Alert sx={{ mb: 1 }} severity="error">Error fetching study. Make sure it's not private.</Alert> : null}
         <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="start">
           <Button size="small" variant="outlined" aria-label="Scotish" onClick={() => setStudyPreset("scotish")}>Scotish</Button>
           <Button size="small" variant="outlined" aria-label="Caro-Kann" onClick={() => setStudyPreset("caro-kann")} sx={{ ml: 2 }}>Caro-Kann</Button>
           <Button size="small" variant="outlined" aria-label="London System" onClick={() => setStudyPreset("london-system")} sx={{ ml: 2 }}>London System</Button>
         </Grid>
       </> : null}
-      {studyUrl && !studyTitle ? <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="center"><CircularProgress /></Grid> : null}
+      {studyLoading ? <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="center"><CircularProgress /></Grid> : null}
       {studyTitle ? <Grid container sx={{ mb: 2 }}>
         <Accordion sx={{ flexGrow: 1 }}>
           <AccordionSummary
@@ -485,7 +521,9 @@ export function Preparation(props: PreparationProps) {
               {chapterLines.map((chapterLine, i) =>
                 <ListItem key={i} secondaryAction={
                   <IconButton color="primary" aria-label="chapter orientation" component="div" onClick={() => toggleChapterOrientationItem(i)}>
-                    {chapterOrientation[i]?.orientation == "white" ? <img className="side-img" src="./white-king.svg"></img> : <img className="side-img" src="./black-king.svg"></img>}
+                    {chapterOrientation[i]?.orientation == "white" && <img className="side-img" src="./white-king.svg"></img>}
+                    {chapterOrientation[i]?.orientation == "black" && <img className="side-img" src="./black-king.svg"></img>}
+                    {chapterOrientation[i]?.orientation == null && <img className="side-img" style={{ transform: 'rotate(170deg)', opacity: 0.5 }} src="./black-king.svg"></img>}
                   </IconButton>
                 }>
                   <ListItemText primary={chapterLine.title}></ListItemText>
