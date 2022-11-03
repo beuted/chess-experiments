@@ -6,6 +6,7 @@ import { HydratedChessComArchive } from "./ChessComArchive"
 import InfoIcon from '@mui/icons-material/Info';
 import Badge from '@mui/material/Badge';
 import { Link } from "react-router-dom";
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
 type TacticsProps = { archives: HydratedChessComArchive[] | undefined }
 
@@ -200,12 +201,10 @@ export function Tactics(props: TacticsProps) {
               </Box>
             </Grid>
           </>) : null}
-          <Link to="/board" style={{ textDecoration: 'none', marginTop: 10 }}>
-            <Badge color="secondary" badgeContent={"bêta"}>
-              <Button variant="contained">Replay missed gains</Button>
-            </Badge>
-          </Link>
+          <Badge color="secondary" badgeContent={"bêta"} sx={{ mt: 10 }}>
+            <Button variant="contained" component={Link} to={'/board'}> <TrackChangesIcon sx={{ mr: 1 }} />Replay missed gains</Button>
+          </Badge>
         </Grid>
-      </Card> : null
+      </Card > : null
   )
 }

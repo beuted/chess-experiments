@@ -1,11 +1,12 @@
-import { Box, Button, Card, Grid, Tooltip } from "@mui/material";
+import { Badge, Box, Button, Card, FormControlLabel, FormGroup, Grid, Radio, Switch, Tooltip, Typography } from "@mui/material";
 import { ChartData } from "chart.js";
 import { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
 import { getResult, HydratedChessComArchive } from "./ChessComArchive";
-import InfoIcon from '@mui/icons-material/Info';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { GridFilterModel } from "@mui/x-data-grid";
+import { Link } from "react-router-dom";
 
 type OpeningsProps = { archives: HydratedChessComArchive[] | undefined, setTableFilters: (filters: GridFilterModel) => void }
 
@@ -184,10 +185,35 @@ export function Openings(props: OpeningsProps) {
     {(!!openingResultPiesWhiteAll && !!openingResultPiesBlackAll) ? (
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Openings</h2>
-        <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
-        <Button variant="contained" onClick={() => setUseEarlyAdvantageOverResult(!useEarlyAdvantageOverResult)} sx={{ m: 1 }}>{useEarlyAdvantageOverResult ? "Advantage out of opening (move 10)" : "Result of the game"}
-          <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow><InfoIcon></InfoIcon></Tooltip>
-        </Button>
+
+        <Grid container direction="row" alignItems="center" justifyContent="center">
+          <Typography sx={{ width: 200, textAlign: 'right' }}>Result of the game</Typography>
+
+          <Radio
+            checked={!useEarlyAdvantageOverResult}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+              setUseEarlyAdvantageOverResult(event.target.value == "true");
+            }}
+            value="false"
+            name="radio-buttons"
+            inputProps={{ 'aria-label': 'use result of the game' }}
+          />
+          <Radio
+            checked={!!useEarlyAdvantageOverResult}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+              setUseEarlyAdvantageOverResult(event.target.value == "true");
+            }}
+            value="true"
+            name="radio-buttons"
+            inputProps={{ 'aria-label': 'use early advantage' }}
+          />
+          <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow>
+            <Typography sx={{ width: 200, textAlign: 'left' }}>
+              Advantage out of opening
+            </Typography>
+          </Tooltip>
+        </Grid>
+
         <Grid container className="openings">
           <div onClick={() => { setOpeningOpenWhite(!openingOpenWhite); setOpeningOpenBlack(false); setOpeningDetailsVariant(null); }}>
             <h3>As white</h3>
@@ -280,6 +306,9 @@ export function Openings(props: OpeningsProps) {
             }
           </div>) : null}
         </div>
+        <Box sx={{ typography: 'body1', mt: 1, fontStyle: 'italic' }}>Click the charts for more details</Box>
+
+        <Button variant="contained" component={Link} to={'/preparation'} sx={{ mt: 10 }}><MeetingRoomIcon sx={{ mr: 1 }} /> Train openings</Button>
       </Card>) : null
     }
   </>);

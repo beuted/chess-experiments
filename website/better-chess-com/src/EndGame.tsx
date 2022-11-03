@@ -110,30 +110,32 @@ export function EndGame(props: EndGameProps) {
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">End Game</h2>
         <div>
-          <h3>Winning finals <Tooltip title="These are finals that you were suppose to win" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-          <Grid container className="end-games-container">
-            {wonOpeningDataChart.map(x =>
-              <div
-                className="filter-on-click"
-                key={x.datasets[0].label}
-                style={{ width: "180px", }}>
-                <Tooltip title="Filter below table on the draw and loss for this type of final that you were suppose to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setWinningFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>
-          <h3>Standard finals <Tooltip title="These are standard finals that could have gone either way" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-          <Grid container className="end-games-container">
-            {otherOpeningDataChart.map(x =>
-              <div
-                className="filter-on-click"
-                key={x.datasets[0].label}
-                style={{ width: "180px" }}>
-                <Tooltip title="Filter below table on this type of final" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
-                <Pie data={x} options={x.options} />
-              </div>
-            )}
-          </Grid>
+          {wonOpeningDataChart?.length > 0 ? <>
+            <h3>Winning finals <Tooltip title="These are finals that you were suppose to win" arrow><InfoIcon></InfoIcon></Tooltip></h3>
+            <Grid container className="end-games-container">
+              {wonOpeningDataChart.map(x =>
+                <div
+                  className="filter-on-click"
+                  key={x.datasets[0].label}
+                  style={{ width: "180px", }}>
+                  <Tooltip title="Filter below table on the draw and loss for this type of final that you were suppose to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setWinningFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid></> : null}
+          {otherOpeningDataChart?.length > 0 ? <>
+            <h3>Standard finals <Tooltip title="These are standard finals that could have gone either way" arrow><InfoIcon></InfoIcon></Tooltip></h3>
+            <Grid container className="end-games-container">
+              {otherOpeningDataChart.map(x =>
+                <div
+                  className="filter-on-click"
+                  key={x.datasets[0].label}
+                  style={{ width: "180px" }}>
+                  <Tooltip title="Filter below table on this type of final" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                  <Pie data={x} options={x.options} />
+                </div>
+              )}
+            </Grid></> : null}
         </div>
       </Card> : null
   )

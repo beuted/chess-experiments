@@ -15,17 +15,21 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { StockfishService, StockfishState } from './stockfishService';
 import { ChessComArchive, getPgnAtMove, HydratedChessComArchive, TimeClass, UserInfo } from './ChessComArchive';
 import { FullOpenings } from './FullOpening';
-import { Alert, Button, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField, Tooltip } from '@mui/material';
+import { Alert, Box, Button, Divider, Drawer, FormControl, Grid, IconButton, InputLabel, LinearProgress, List, ListItem, ListItemButton, ListItemIcon, ListItemText, MenuItem, Select, SelectChangeEvent, TextField, Tooltip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import ShutterSpeedOutlinedIcon from '@mui/icons-material/ShutterSpeedOutlined';
 import LocalCafeIcon from '@mui/icons-material/LocalCafe';
+import HomeIcon from '@mui/icons-material/Home';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import MenuIcon from '@mui/icons-material/Menu';
 import { Final, getFinal, getPiecesFromBoard, isWinningFinal } from './EndGame';
 import { getLocalCache, setLocalCache } from './CacheUtils';
 import { Statistics } from './Statistics';
 import { BoardPlay } from './BoardPlay';
-import { Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes } from 'react-router-dom';
 import { Chess } from './libs/chess.js';
 import { LichessClient } from './LichessClient';
 import { ChesscomClient } from './ChesscomClient';
@@ -84,6 +88,7 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [monthsInfo, setMonthsInfo] = useState<{ [month: string]: { nbGames: number, sfDepth: number } }>({});
   const [stockfishServices, setStockfishServices] = useState<StockfishService[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
 
   function getGameTypeIcon(gameType: string, size: number = 24) {
     switch (gameType) {
@@ -535,11 +540,14 @@ function App() {
   return (
     <div className="App">
       <div className="app-container">
+        <IconButton aria-label="menu" onClick={() => setDrawerOpen(!drawerOpen)} sx={{ position: 'absolute', left: 5, top: 5 }}>
+          <MenuIcon fontSize="large" />
+        </IconButton>
         {(computingState != ComputingState.NotLoading) ?
           <LinearProgress style={{ width: "100%" }} variant="determinate" value={loadingProgress} />
           : null}
 
-        <Grid sx={{ m: 1 }}>
+        <Grid sx={{ my: 1, mx: 4, position: 'relative' }} >
           <TextField label="Username"
             defaultValue={userName}
             variant="outlined"
@@ -675,6 +683,46 @@ function App() {
           <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
           <Route path="preparation" element={<Preparation></Preparation>} />
         </Routes>
+        <Drawer
+          anchor={'left'}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(!drawerOpen)}
+        >
+          <Box
+            sx={{ width: 250 }}
+          >
+            <List>
+              <ListItem key={'Home'} disablePadding>
+                <ListItemButton component={Link} to={'/'} onClick={() => setDrawerOpen(false)}>
+                  <ListItemIcon>
+                    <HomeIcon />
+                  </ListItemIcon>
+                  <ListItemText primary={'Home'} />
+                </ListItemButton>
+              </ListItem>
+
+              <Divider />
+
+              <ListItem key={'Tactics replay'} disablePadding>
+                <ListItemButton component={Link} to={'/board'} onClick={() => setDrawerOpen(false)}>
+                  <ListItemIcon>
+                    <TrackChangesIcon />
+                  </ListItemIcon>
+                  <ListItemText primary={'Tactics replay'} />
+                </ListItemButton>
+              </ListItem>
+
+              <ListItem key={'Openings trainer'} disablePadding>
+                <ListItemButton component={Link} to={'/preparation'} onClick={() => setDrawerOpen(false)}>
+                  <ListItemIcon>
+                    <MeetingRoomIcon />
+                  </ListItemIcon>
+                  <ListItemText primary={'Openings trainer'} />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          </Box>
+        </Drawer>
       </div >
     </div >
   );
