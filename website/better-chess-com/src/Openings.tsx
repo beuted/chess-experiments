@@ -187,8 +187,9 @@ export function Openings(props: OpeningsProps) {
         <h2 className="card-title">Openings</h2>
 
         <Grid container direction="row" alignItems="center" justifyContent="center">
-          <Typography sx={{ width: 200, textAlign: 'right' }}>Result of the game</Typography>
-
+          <Typography sx={{ width: 200, textAlign: 'right', cursor: 'pointer' }} onClick={() => setUseEarlyAdvantageOverResult(false)}>
+            Result of the game
+          </Typography>
           <Radio
             checked={!useEarlyAdvantageOverResult}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,7 +209,7 @@ export function Openings(props: OpeningsProps) {
             inputProps={{ 'aria-label': 'use early advantage' }}
           />
           <Tooltip title="Advantage is computed at move 10. If the advantage is below -1.5 centipawns we consider the opening as failed and if above 1.5 as succeeded" arrow>
-            <Typography sx={{ width: 200, textAlign: 'left' }}>
+            <Typography sx={{ width: 200, textAlign: 'left', cursor: 'pointer' }} onClick={() => setUseEarlyAdvantageOverResult(true)}>
               Advantage out of opening
             </Typography>
           </Tooltip>
@@ -308,7 +309,7 @@ export function Openings(props: OpeningsProps) {
         </div>
         <Box sx={{ typography: 'body1', mt: 1, fontStyle: 'italic' }}>Click the charts for more details</Box>
 
-        <Button variant="contained" component={Link} to={'/preparation'} sx={{ mt: 10 }}><MeetingRoomIcon sx={{ mr: 1 }} /> Train openings</Button>
+        <Button variant="contained" component={Link} to={'/preparation'} sx={{ mt: 8 }}><MeetingRoomIcon sx={{ mr: 1 }} /> Train openings</Button>
       </Card>) : null
     }
   </>);

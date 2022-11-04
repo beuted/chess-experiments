@@ -10,7 +10,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import { StockfishService, StockfishState } from "./stockfishService";
-import { debounce, useKeyPress } from './ReactHelpers';
+import { debounce, useAudio, useKeyPress } from './ReactHelpers';
 import { ArchiveMoveDescription } from './ArchiveMoveDescription';
 import { VariantLine } from './VariantLine';
 import { Chess, ChessInstance, Move, Square } from './libs/chess.js';
@@ -19,6 +19,7 @@ import FlipCameraAndroidIcon from '@mui/icons-material/FlipCameraAndroid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { SuccessAnimationIcon } from './SuccessAnimationIcon';
 
 
@@ -47,6 +48,8 @@ export function Preparation(props: PreparationProps) {
   const [availableBlackStudy, setAvailableBlackStudy] = useState<boolean>(false);
   const [availableWhiteStudy, setAvailableWhiteStudy] = useState<boolean>(false);
   const [dimensions, setDimensions] = useState({ height: window.innerHeight, width: window.innerWidth });
+  const [moveSoundPlay, setMoveSoundPlay] = useAudio("./Move.ogg");
+  const [captureSoundPlay, setCaptureSoundPlay] = useAudio("./Capture.ogg");
 
   useEffect(() => {
     const debouncedHandleResize = debounce(function handleResize() {
@@ -103,9 +106,10 @@ export function Preparation(props: PreparationProps) {
     setChapterFens(chapterFens);
     setChapterMoves(chapterMoves);
 
+    console.log(chapterOrientation)
     // Try to Determine board orientation based of the lines and where they fork
     if (chapterOrientation && chapterOrientation.length > 0) {
-      //nono
+      // Already known from store, don't compute
     } else {
       const newChapterOrientation: { orientation: "white" | "black" | null }[] = chapterMoves.map(chapter => {
         let moveIndex = 0;
@@ -152,7 +156,7 @@ export function Preparation(props: PreparationProps) {
   }, [chapterOrientation]);
 
 
-  async function fetchStudy(studyUrl: string | undefined) {
+  async function fetchStudy(studyUrl: string | undefined, orientation?: 'white' | 'black') {
     if (!studyUrl)
       return;
 
@@ -244,22 +248,42 @@ export function Preparation(props: PreparationProps) {
     }
 
     // Save in store if valid
-    localStorage.setItem('studyUrl', studyUrl);
-    localStorage.setItem('chapterOrientation', '[]');
-    setChapterOrientation([]);
+
+    if (localStorage.getItem('studyUrl') == studyUrl && chapterOrientation && chapterOrientation.length > 0) {
+
+    } else if (!orientation) {
+      setChapterOrientation([]);
+      localStorage.setItem('chapterOrientation', '[]');
+      localStorage.setItem('studyUrl', studyUrl);
+    } else {
+      const chapterOrientation = allChapterLines.map(() => ({ orientation: orientation }));
+      setChapterOrientation(chapterOrientation);
+      localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientation));
+      localStorage.setItem('studyUrl', studyUrl);
+    }
+
 
     setChapterLines(allChapterLines);
     const studyTitle = allChapterLines[0].title?.split(":")[0];
     setStudyTitle(studyTitle);
+    setStudyLoading(false);
 
-    // Reset Board
+    resetBoard();
+
+    return allChapterLines;
+  }
+
+  function resetBoard() {
+    setCustomSquareStyles({});
+    setCustomArrows([]);
+    setShowTips(false);
+    setShowSolution(false);
+    setNextPlayerMove(null);
+
     const gameCopy = { ...board };
     gameCopy.clear();
     setBoard(gameCopy);
     setShowSuccess(null);
-    setStudyLoading(false);
-
-    return allChapterLines;
   }
 
   function startAsWhite() {
@@ -368,6 +392,12 @@ export function Preparation(props: PreparationProps) {
       setCustomSquareStyles({ [move.from]: { backgroundColor: 'red' }, [move.to]: { backgroundColor: 'red' } });
       return true;
     }
+
+    if (move.captured)
+      setCaptureSoundPlay(true);
+    else
+      setMoveSoundPlay(true);
+
     let { iChapter, iLine, iFen } = result;
 
     let opponentMove = chapterMoves[iChapter].moves[iLine][iFen];
@@ -412,7 +442,7 @@ export function Preparation(props: PreparationProps) {
 
     // If we have the choice we filter out lines that don't have a next move
     let possibleLinesFiltered = possibleLines.filter(({ iChapter, iLine, iFen }) => chapterFens[iChapter].fens[iLine][iFen + 1]);
-    if (possibleLinesFiltered.length > 1) {
+    if (possibleLinesFiltered.length > 0) {
       possibleLines = possibleLinesFiltered;
     }
 
@@ -437,20 +467,23 @@ export function Preparation(props: PreparationProps) {
     localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientationCopy));
   }
 
-  async function setStudyPreset(preset: 'scotish' | 'caro-kann' | 'london-system') {
+  async function setStudyPreset(preset: 'scotish' | 'caro-kann' | 'london-system' | 'stafford-gambit' | 'nimzo-bogo-indian' | 'catalan') {
     let url: string
     let orientation: 'white' | 'black'
     switch (preset) {
       case 'scotish': url = 'https://lichess.org/study/iGvRBCsI'; orientation = 'white'; break;
       case 'caro-kann': url = 'https://lichess.org/study/IZ2Z759V'; orientation = 'black'; break;
       case 'london-system': url = 'https://lichess.org/study/4sG72RkJ'; orientation = 'white'; break;
+      case 'stafford-gambit': url = 'https://lichess.org/study/whCVdUeM'; orientation = 'black'; break; // Not on my account
+      case 'nimzo-bogo-indian': url = 'https://lichess.org/study/82Wzzapz'; orientation = 'black'; break; // Not on my account
+      case 'catalan': url = 'https://lichess.org/study/x75NW8ek'; orientation = 'white'; break; // Not on my account
     }
 
-    setStudyUrl(url);
-    let allChapterLines = await fetchStudy(url);
+    let allChapterLines = await fetchStudy(url, orientation);
     if (!allChapterLines)
       return;
-    setChapterOrientation(allChapterLines.map(x => ({ orientation: orientation })));
+
+    setStudyUrl(url);
   }
 
   function deleteStudy() {
@@ -459,27 +492,18 @@ export function Preparation(props: PreparationProps) {
     setChapterOrientation([]);
     setChapterFens([]);
     setChapterMoves([]);
-
-    setShowSuccess(null);
-    setCustomSquareStyles({});
-    setCustomArrows([]);
-    setShowTips(false);
-    setShowSolution(false);
-    setNextPlayerMove(null);
     setStudyTitle("");
 
     localStorage.setItem('studyUrl', '');
     localStorage.setItem('chapterOrientation', '[]');
 
-    const gameCopy = { ...board };
-    gameCopy.clear();
-    setBoard(gameCopy);
+    resetBoard();
   }
 
   return (
     <Grid direction="column" container className="preparation-container">
       {!studyTitle && !studyLoading ? <>
-        <Grid container sx={{ mb: 1 }} direction="row" alignItems="center" justifyContent="space-between">
+        <Grid container sx={{ mb: 0 }} direction="row" alignItems="center" justifyContent="space-between">
           <Tooltip title="Provide a lichess study to start the training. See: https://lichess.org/study">
             <TextField label="Lichess study"
               placeholder="https://lichess.org/study/XXXXXXXX"
@@ -495,9 +519,13 @@ export function Preparation(props: PreparationProps) {
         </Grid>
         {studyError ? <Alert sx={{ mb: 1 }} severity="error">Error fetching study. Make sure it's not private.</Alert> : null}
         <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="start">
-          <Button size="small" variant="outlined" aria-label="Scotish" onClick={() => setStudyPreset("scotish")}>Scotish</Button>
-          <Button size="small" variant="outlined" aria-label="Caro-Kann" onClick={() => setStudyPreset("caro-kann")} sx={{ ml: 2 }}>Caro-Kann</Button>
-          <Button size="small" variant="outlined" aria-label="London System" onClick={() => setStudyPreset("london-system")} sx={{ ml: 2 }}>London System</Button>
+          <Button size="small" sx={{ mt: 1 }} variant="outlined" aria-label="Scotish" onClick={() => setStudyPreset("scotish")}>Scotish</Button>
+          <Button size="small" sx={{ mt: 1, ml: 1 }} variant="outlined" aria-label="Caro-Kann" onClick={() => setStudyPreset("caro-kann")}>Caro-Kann</Button>
+          <Button size="small" sx={{ mt: 1, ml: 1 }} variant="outlined" aria-label="London System" onClick={() => setStudyPreset("london-system")}>London System</Button>
+          <Button size="small" sx={{ mt: 1, ml: 1 }} variant="outlined" aria-label="Stafford Gambit" onClick={() => setStudyPreset("stafford-gambit")}>Stafford Gambit</Button>
+          <Button size="small" sx={{ mt: 1, ml: 1 }} variant="outlined" aria-label="Nimzo/Bogo Indian" onClick={() => setStudyPreset("nimzo-bogo-indian")}>Nimzo/Bogo Indian</Button>
+          <Button size="small" sx={{ mt: 1, ml: 1 }} variant="outlined" aria-label="Catalan" onClick={() => setStudyPreset("catalan")}>Catalan</Button>
+
         </Grid>
       </> : null}
       {studyLoading ? <Grid container sx={{ mb: 2 }} direction="row" alignItems="center" justifyContent="center"><CircularProgress /></Grid> : null}
@@ -521,9 +549,9 @@ export function Preparation(props: PreparationProps) {
               {chapterLines.map((chapterLine, i) =>
                 <ListItem key={i} secondaryAction={
                   <IconButton color="primary" aria-label="chapter orientation" component="div" onClick={() => toggleChapterOrientationItem(i)}>
-                    {chapterOrientation[i]?.orientation == "white" && <img className="side-img" src="./white-king.svg"></img>}
-                    {chapterOrientation[i]?.orientation == "black" && <img className="side-img" src="./black-king.svg"></img>}
-                    {chapterOrientation[i]?.orientation == null && <img className="side-img" style={{ transform: 'rotate(170deg)', opacity: 0.5 }} src="./black-king.svg"></img>}
+                    {chapterOrientation[i]?.orientation == "white" && <Tooltip title="Train chapter as white"><img className="side-img" src="./white-king.svg"></img></Tooltip>}
+                    {chapterOrientation[i]?.orientation == "black" && <Tooltip title="Train chapter as black"><img className="side-img" src="./black-king.svg"></img></Tooltip>}
+                    {chapterOrientation[i]?.orientation == null && <Tooltip title="Chapter disabled"><img className="side-img" style={{ transform: 'rotate(170deg)', opacity: 0.5 }} src="./black-king.svg"></img></Tooltip>}
                   </IconButton>
                 }>
                   <ListItemText primary={chapterLine.title}></ListItemText>
@@ -559,13 +587,16 @@ export function Preparation(props: PreparationProps) {
         </Grid>
       </Grid>
       <Grid container direction="row" alignItems="center" justifyContent="end" sx={{ my: 2 }}>
+        <Tooltip enterDelay={500} title="Restart with a new line"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { resetBoard(); }} disabled={!!showSuccess || showSuccess == null}>
+          <RestartAltIcon fontSize="large" />
+        </IconButton></Tooltip>
         {
-          !showTips ? <Tooltip enterDelay={700} title="Show help"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!nextPlayerMove}>
+          !showTips ? <Tooltip enterDelay={500} title="Show help"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowTips(true); }} disabled={!nextPlayerMove}>
             <TipsAndUpdatesIcon fontSize="large" />
           </IconButton></Tooltip> : null
         }
         {
-          showTips ? <Tooltip enterDelay={700} title="Show solution"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution}>
+          showTips ? <Tooltip enterDelay={500} title="Show solution"><IconButton color="primary" aria-label="tips" component="span" onClick={() => { setShowSolution(true) }} disabled={showSolution}>
             <QuestionMarkIcon fontSize="large" />
           </IconButton></Tooltip> : null
         }

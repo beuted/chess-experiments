@@ -111,14 +111,14 @@ export function EndGame(props: EndGameProps) {
         <h2 className="card-title">End Game</h2>
         <div>
           {wonOpeningDataChart?.length > 0 ? <>
-            <h3>Winning finals <Tooltip title="These are finals that you were suppose to win" arrow><InfoIcon></InfoIcon></Tooltip></h3>
+            <h3>Winning finals <Tooltip title="These are finals that you were supposed to win" arrow><InfoIcon></InfoIcon></Tooltip></h3>
             <Grid container className="end-games-container">
               {wonOpeningDataChart.map(x =>
                 <div
                   className="filter-on-click"
                   key={x.datasets[0].label}
                   style={{ width: "180px", }}>
-                  <Tooltip title="Filter below table on the draw and loss for this type of final that you were suppose to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setWinningFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
+                  <Tooltip title="Filter below table on the draw and loss for this type of final that you were supposed to win" arrow><FilterAltIcon className="pie-filter-button" onClick={() => setWinningFinalFilter(x.datasets[0].label)}></FilterAltIcon></Tooltip>
                   <Pie data={x} options={x.options} />
                 </div>
               )}

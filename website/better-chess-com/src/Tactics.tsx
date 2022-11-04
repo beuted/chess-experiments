@@ -1,4 +1,4 @@
-import { Box, Card, Grid, Tooltip, Button } from "@mui/material";
+import { Box, Card, Grid, Tooltip, Button, Typography } from "@mui/material";
 import { ChartData } from "chart.js";
 import { useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
@@ -180,10 +180,14 @@ export function Tactics(props: TacticsProps) {
     props.archives && props.archives.length > 0 && !!tacticsBarChart && !!tacticsBarChartEarly && !!tacticsBarChartMid && !!tacticsBarChartLate ?
       <Card variant="outlined" sx={{ py: 3, width: "100%", maxWidth: 1200, mb: 2 }}>
         <h2 className="card-title">Tactics</h2>
-        <h4>Accuracy: {accuracy.toFixed(2)} pawns <Tooltip title="Average pawn loss per move, the closer you are to zero the more accurate you are" arrow><InfoIcon></InfoIcon></Tooltip></h4>
+        <Tooltip title="Average pawn loss per move, the closer you are to zero the more accurate you are" arrow>
+          <Grid container direction="row" alignItems="center" justifyContent="center" sx={{ color: accuracy > 3 ? '#d36446' : accuracy > 1.5 ? '#f2b14f' : '#7dcbbc' }}>
+            <TrackChangesIcon fontSize="large" sx={{ mr: 1 }} />
+            <Typography variant="h5" >{accuracy.toFixed(2)} pawns</Typography>
+          </Grid>
+        </Tooltip>
         <Grid container direction="column" alignItems="center" justifyContent="center">
           <h3>Mistakes <Tooltip title="Average mistakes you and your opponents are doing per game" arrow><InfoIcon></InfoIcon></Tooltip></h3>
-          <Box sx={{ typography: 'body1', mb: 2 }}>Click the charts for more details</Box>
 
           <Box sx={{ maxWidth: 500, width: '100%' }} >
             <Bar data={tacticsBarChart} options={tacticsBarChart.options} onClick={() => setShowMistakesPerStage(!showMistakesPerStage)} className="cursorPointer" />
@@ -201,7 +205,8 @@ export function Tactics(props: TacticsProps) {
               </Box>
             </Grid>
           </>) : null}
-          <Badge color="secondary" badgeContent={"bêta"} sx={{ mt: 10 }}>
+          <Box sx={{ typography: 'body1', mt: 1, fontStyle: 'italic' }}>Click the charts for more details</Box>
+          <Badge color="secondary" badgeContent={"bêta"} sx={{ mt: 8 }}>
             <Button variant="contained" component={Link} to={'/board'}> <TrackChangesIcon sx={{ mr: 1 }} />Replay missed gains</Button>
           </Badge>
         </Grid>
