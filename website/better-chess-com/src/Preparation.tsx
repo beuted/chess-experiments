@@ -79,7 +79,7 @@ export function Preparation(props: PreparationProps) {
 
     gtag("event", "page_view", {
       page_title: 'Preparation',
-      page_location: 'https://chess.jehanno.net/board',
+      page_location: 'https://chess.jehanno.net/study',
     });
   }, []);
 
