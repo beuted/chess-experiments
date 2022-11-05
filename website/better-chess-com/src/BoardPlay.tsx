@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 type BoardPlayProps = { hydratedArchives: HydratedChessComArchive[] | undefined }
 
 const sfDepth = 18;
+declare const gtag: any;
 
 export function BoardPlay(props: BoardPlayProps) {
   const [data, setData] = useState<any & { options: any }>();
@@ -64,6 +65,11 @@ export function BoardPlay(props: BoardPlayProps) {
       // Sey the interest move Id to 0 to start
       setInterestMoveId(0);
     })();
+
+    gtag("event", "page_view", {
+      page_title: 'Tactics Replay',
+      page_location: 'https://chess.jehanno.net/board',
+    });
   }, []);
 
   useEffect(() => {

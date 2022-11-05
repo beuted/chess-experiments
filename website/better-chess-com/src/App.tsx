@@ -278,7 +278,7 @@ function App() {
       const timeSpent = (performance.now() - start).toFixed(3);
       console.log(`function took ${timeSpent}ms`);
 
-      gtag!("event", "search_end", {
+      gtag("event", "search_end", {
         userName: userName,
         platform: platform,
         gameType: gameType,

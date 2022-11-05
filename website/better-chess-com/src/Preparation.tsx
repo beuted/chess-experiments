@@ -22,6 +22,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { SuccessAnimationIcon } from './SuccessAnimationIcon';
 
+declare const gtag: any;
 
 type PreparationProps = {}
 
@@ -51,6 +52,7 @@ export function Preparation(props: PreparationProps) {
   const [moveSoundPlay, setMoveSoundPlay] = useAudio("./Move.ogg");
   const [captureSoundPlay, setCaptureSoundPlay] = useAudio("./Capture.ogg");
 
+
   useEffect(() => {
     const debouncedHandleResize = debounce(function handleResize() {
       setDimensions({
@@ -63,7 +65,6 @@ export function Preparation(props: PreparationProps) {
 
     return () => {
       window.removeEventListener('resize', debouncedHandleResize)
-
     }
   })
 
@@ -75,6 +76,11 @@ export function Preparation(props: PreparationProps) {
     const gameCopy = { ...board };
     gameCopy.clear();
     setBoard(gameCopy);
+
+    gtag("event", "page_view", {
+      page_title: 'Preparation',
+      page_location: 'https://chess.jehanno.net/board',
+    });
   }, []);
 
   useEffect(() => {
@@ -159,6 +165,10 @@ export function Preparation(props: PreparationProps) {
   async function fetchStudy(studyUrl: string | undefined, orientation?: 'white' | 'black') {
     if (!studyUrl)
       return;
+
+    gtag("event", "fetch_study", {
+      study: studyUrl,
+    });
 
     setStudyError(null);
     setStudyLoading(true);
