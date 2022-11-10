@@ -112,7 +112,6 @@ export function Preparation(props: PreparationProps) {
     setChapterFens(chapterFens);
     setChapterMoves(chapterMoves);
 
-    console.log(chapterOrientation)
     // Try to Determine board orientation based of the lines and where they fork
     if (chapterOrientation && chapterOrientation.length > 0) {
       // Already known from store, don't compute
@@ -229,15 +228,19 @@ export function Preparation(props: PreparationProps) {
         for (; i < cleanedChaperParts.length; i++) {
           if (!cleanedChaperParts[i].includes(')')) {
             chapterLines[chapterLines.length - 1] += cleanedChaperParts[i];
+
+            if (i != cleanedChaperParts.length - 1) {
+              // Add the fen at the start the start position is not default one
+              let pgnToLoad = chapterLines[chapterLines.length - 1];
+              pgnToLoad = pgnToLoad.replaceAll(/[0-9]*\.\.\. /g, ''); // Remove the "6... " unecessary strings (them make load_pgn fails)
+              // Remove the last move
+              let res = chess.load_pgn(pgnToLoad)
+              if (!res) console.error("Couldn't load png", pgnToLoad);
+              chess.undo();
+              let cleanPgn = chess.pgn();
+              chapterLines[chapterLines.length - 1] = cleanPgn.substring(0, cleanPgn.length - 1);
+            }
           } else {
-            // Add the fen at the start the start position is not default one
-            let pgnToLoad = chapterLines[chapterLines.length - 1];
-
-            // Remove the last move
-            chess.load_pgn(pgnToLoad);
-            chess.undo();
-            chapterLines[chapterLines.length - 1] = chess.pgn() + " ";
-
             let cleanedChaperPartParts = cleanedChaperParts[i].split(')');
             chapterLines[chapterLines.length - 1] += cleanedChaperPartParts.shift(); // Add the end of the line to chapterLines
             // Merge the curr element with the previous one
@@ -370,6 +373,8 @@ export function Preparation(props: PreparationProps) {
 
     if (nextPlayerMove == null) {
       setShowSuccess(true);
+      //chapterMoves[iChapter].moves.splice(iLine, 1);
+      //chapterFens[iChapter].fens.splice(iLine, 1);
       return true;
     }
 
@@ -415,6 +420,8 @@ export function Preparation(props: PreparationProps) {
 
     if (opponentMove == null) {
       setShowSuccess(true);
+      //chapterMoves[iChapter].moves.splice(iLine, 1);
+      //chapterFens[iChapter].fens.splice(iLine, 1);
       return true;
     }
 
@@ -422,6 +429,8 @@ export function Preparation(props: PreparationProps) {
 
     if (nextPlayerMove == null) {
       setShowSuccess(true);
+      //chapterMoves[iChapter].moves.splice(iLine, 1);
+      //chapterFens[iChapter].fens.splice(iLine, 1);
       return true;
     }
 
@@ -452,6 +461,8 @@ export function Preparation(props: PreparationProps) {
 
     // If we have the choice we filter out lines that don't have a next move
     let possibleLinesFiltered = possibleLines.filter(({ iChapter, iLine, iFen }) => chapterFens[iChapter].fens[iLine][iFen + 1]);
+
+    console.log(possibleLinesFiltered);
     if (possibleLinesFiltered.length > 0) {
       possibleLines = possibleLinesFiltered;
     }
@@ -558,7 +569,7 @@ export function Preparation(props: PreparationProps) {
             <List dense={true}>
               {chapterLines.map((chapterLine, i) =>
                 <ListItem key={i} secondaryAction={
-                  <IconButton color="primary" aria-label="chapter orientation" component="div" onClick={() => toggleChapterOrientationItem(i)}>
+                  <IconButton className="chapter-orientation-toggle" color="primary" aria-label="chapter orientation" disabled={!showSuccess && showSuccess !== null} onClick={() => toggleChapterOrientationItem(i)}>
                     {chapterOrientation[i]?.orientation == "white" && <Tooltip title="Train chapter as white"><img className="side-img" src="./white-king.svg"></img></Tooltip>}
                     {chapterOrientation[i]?.orientation == "black" && <Tooltip title="Train chapter as black"><img className="side-img" src="./black-king.svg"></img></Tooltip>}
                     {chapterOrientation[i]?.orientation == null && <Tooltip title="Chapter disabled"><img className="side-img" style={{ transform: 'rotate(170deg)', opacity: 0.5 }} src="./black-king.svg"></img></Tooltip>}

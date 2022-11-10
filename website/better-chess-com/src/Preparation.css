@@ -11,6 +11,15 @@ button:disabled>.start-side-img {
   opacity: 0.5;
 }
 
+
+.chapter-orientation-toggle {
+  opacity: 1;
+}
+
+.chapter-orientation-toggle:disabled {
+  opacity: 0.5;
+}
+
 .chessboard-container {
   position: relative;
 }
