@@ -681,7 +681,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Statistics hydratedArchives={hydratedArchives}></Statistics>} />
           <Route path="board" element={<BoardPlay hydratedArchives={hydratedArchives}></BoardPlay>} />
-          <Route path="preparation" element={<Preparation></Preparation>} />
+          <Route path="preparation" element={<Preparation hydratedArchives={hydratedArchives}></Preparation>} />
         </Routes>
         <Drawer
           anchor={'left'}

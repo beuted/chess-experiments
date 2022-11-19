@@ -24,7 +24,7 @@ import { SuccessAnimationIcon } from './SuccessAnimationIcon';
 
 declare const gtag: any;
 
-type PreparationProps = {}
+type PreparationProps = { hydratedArchives: HydratedChessComArchive[] | undefined }
 
 export function Preparation(props: PreparationProps) {
 
@@ -234,7 +234,7 @@ export function Preparation(props: PreparationProps) {
               let pgnToLoad = chapterLines[chapterLines.length - 1];
               pgnToLoad = pgnToLoad.replaceAll(/[0-9]*\.\.\. /g, ''); // Remove the "6... " unecessary strings (them make load_pgn fails)
               // Remove the last move
-              let res = chess.load_pgn(pgnToLoad)
+              let res = chess.load_pgn(pgnToLoad);
               if (!res) console.error("Couldn't load png", pgnToLoad);
               chess.undo();
               let cleanPgn = chess.pgn();
@@ -275,13 +275,14 @@ export function Preparation(props: PreparationProps) {
       localStorage.setItem('studyUrl', studyUrl);
     }
 
-
     setChapterLines(allChapterLines);
     const studyTitle = allChapterLines[0].title?.split(":")[0];
     setStudyTitle(studyTitle);
     setStudyLoading(false);
 
     resetBoard();
+
+    compareToGames();
 
     return allChapterLines;
   }
@@ -486,6 +487,8 @@ export function Preparation(props: PreparationProps) {
 
     setChapterOrientation(chapterOrientationCopy);
     localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientationCopy));
+
+    compareToGames();
   }
 
   async function setStudyPreset(preset: 'scotish' | 'caro-kann' | 'london-system' | 'stafford-gambit' | 'nimzo-bogo-indian' | 'catalan') {
@@ -519,6 +522,34 @@ export function Preparation(props: PreparationProps) {
     localStorage.setItem('chapterOrientation', '[]');
 
     resetBoard();
+  }
+
+  function compareToGames() {
+    if (!props.hydratedArchives)
+      return;
+
+    const chess = new Chess();
+    for (const archive of props.hydratedArchives) {
+      chess.reset()
+      let i;
+      let prepaSuccess = false;
+      for (i = 0; i < archive.moves.length; i++) {
+
+        const move = archive.moves[i]
+
+        chess.move(move);
+
+        const fen = chess.fen();
+        if (!chapterFens.find((c => c.fens.find(line => line.includes(fen))))) {
+          // Check if move has been made by the player
+          prepaSuccess = (archive.playingWhite && i % 2 === 1) || (!archive.playingWhite && i % 2 === 0);
+
+          //TODO: break only if it's the last move of the line
+          break;
+        }
+      }
+      console.log(archive.url, i, prepaSuccess);
+    }
   }
 
   return (
