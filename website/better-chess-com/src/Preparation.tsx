@@ -21,6 +21,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { SuccessAnimationIcon } from './SuccessAnimationIcon';
+import { PrepaGameResult, PreparationTable } from './PreparationTable';
+import { GridFilterModel } from '@mui/x-data-grid';
 
 declare const gtag: any;
 
@@ -49,6 +51,8 @@ export function Preparation(props: PreparationProps) {
   const [availableBlackStudy, setAvailableBlackStudy] = useState<boolean>(false);
   const [availableWhiteStudy, setAvailableWhiteStudy] = useState<boolean>(false);
   const [dimensions, setDimensions] = useState({ height: window.innerHeight, width: window.innerWidth });
+  const [prepaGameResult, setPrepaGameResult]= useState<PrepaGameResult[]>([]);
+
   const [moveSoundPlay, setMoveSoundPlay] = useAudio("./Move.ogg");
   const [captureSoundPlay, setCaptureSoundPlay] = useAudio("./Capture.ogg");
 
@@ -160,6 +164,12 @@ export function Preparation(props: PreparationProps) {
     setAvailableWhiteStudy(!!chapterOrientation.find(x => x.orientation == "white"));
   }, [chapterOrientation]);
 
+useEffect(() => {
+  if (!props.hydratedArchives || props.hydratedArchives.length == 0 || !chapterFens || chapterFens.length == 0)
+    return;
+
+  compareToGames();
+}, [props.hydratedArchives, chapterFens, chapterOrientation])
 
   async function fetchStudy(studyUrl: string | undefined, orientation?: 'white' | 'black') {
     if (!studyUrl)
@@ -209,8 +219,10 @@ export function Preparation(props: PreparationProps) {
     chapters.shift();
 
     let allChapterLines = [];
+    let studyTitle = "";
     for (let chapter of chapters) {
       let title = chapter.match(/\[Event\ \"(.*)\"\]/)?.[1];
+      studyTitle = title?.split(":", 2)[0] || "Unamed";
       let fen = chapter.match(/\[FEN\ \"(.*)\"\]/)?.[1];
 
       let chapterSplit = chapter
@@ -257,7 +269,7 @@ export function Preparation(props: PreparationProps) {
         }
       }
 
-      allChapterLines.push({ title: title, lines: chapterLines, fen: fen });
+      allChapterLines.push({ title: title?.split(":", 2)[1], lines: chapterLines, fen: fen });
     }
 
     // Save in store if valid
@@ -276,13 +288,10 @@ export function Preparation(props: PreparationProps) {
     }
 
     setChapterLines(allChapterLines);
-    const studyTitle = allChapterLines[0].title?.split(":")[0];
     setStudyTitle(studyTitle);
     setStudyLoading(false);
 
     resetBoard();
-
-    compareToGames();
 
     return allChapterLines;
   }
@@ -487,8 +496,6 @@ export function Preparation(props: PreparationProps) {
 
     setChapterOrientation(chapterOrientationCopy);
     localStorage.setItem('chapterOrientation', JSON.stringify(chapterOrientationCopy));
-
-    compareToGames();
   }
 
   async function setStudyPreset(preset: 'scotish' | 'caro-kann' | 'london-system' | 'stafford-gambit' | 'nimzo-bogo-indian' | 'catalan') {
@@ -528,19 +535,38 @@ export function Preparation(props: PreparationProps) {
     if (!props.hydratedArchives)
       return;
 
+    console.log("compareToGames")
+    let prepaGameResult = [];
     const chess = new Chess();
     for (const archive of props.hydratedArchives) {
       chess.reset()
       let i;
       let prepaSuccess = false;
-      for (i = 0; i < archive.moves.length; i++) {
+      let lastChapterFoundIndex: number = -1;
+      let lastLineFoundIndex: number = -1;
 
+      for (i = 0; i < archive.moves.length; i++) {
         const move = archive.moves[i]
 
         chess.move(move);
 
         const fen = chess.fen();
-        if (!chapterFens.find((c => c.fens.find(line => line.includes(fen))))) {
+
+        let lineFoundIndex = -1;
+        let chapterFoundIndex = chapterFens.findIndex((c => {
+          lineFoundIndex = c.fens.findIndex(line => line.includes(fen));
+          return lineFoundIndex != -1;
+        }));
+
+        if (lineFoundIndex !== -1) {
+          lastLineFoundIndex = lineFoundIndex;
+        }
+
+        if (chapterFoundIndex !== -1) {
+          lastChapterFoundIndex = chapterFoundIndex;
+        }
+
+        if (chapterFoundIndex === -1) {
           // Check if move has been made by the player
           prepaSuccess = (archive.playingWhite && i % 2 === 1) || (!archive.playingWhite && i % 2 === 0);
 
@@ -548,11 +574,20 @@ export function Preparation(props: PreparationProps) {
           break;
         }
       }
-      console.log(archive.url, i, prepaSuccess);
+      prepaGameResult.push({
+        gameUrl: archive.url,
+        failedMove: i,
+        prepaSuccess: prepaSuccess,
+        chapter: lastChapterFoundIndex,
+        chapterName: lastChapterFoundIndex != -1 ? chapterLines[lastChapterFoundIndex].title : "",
+        line: lastLineFoundIndex,
+      });    
     }
+    setPrepaGameResult(prepaGameResult);
   }
 
   return (
+    <>
     <Grid direction="column" container className="preparation-container">
       {!studyTitle && !studyLoading ? <>
         <Grid container sx={{ mb: 0 }} direction="row" alignItems="center" justifyContent="space-between">
@@ -653,7 +688,12 @@ export function Preparation(props: PreparationProps) {
           </IconButton></Tooltip> : null
         }
       </Grid>
-    </Grid >
+    </Grid>
+    
+    <div style={{ height: "100vh", width: "100%", maxWidth: 1200, marginTop: 30 }}>
+      <PreparationTable prepaGameResult={prepaGameResult} chapterMoves={chapterMoves}></PreparationTable>
+    </div>
+    </>
   )
 
 }
