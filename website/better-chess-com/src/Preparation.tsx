@@ -35,6 +35,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import UndoIcon from "@mui/icons-material/Undo";
+import BedroomBabyIcon from "@mui/icons-material/BedroomBaby";
 import { SuccessAnimationIcon } from "./SuccessAnimationIcon";
 import { PrepaGameResult, PreparationTable } from "./PreparationTable";
 import { GridFilterModel } from "@mui/x-data-grid";
@@ -367,6 +369,41 @@ export function Preparation(props: PreparationProps) {
     setShowSuccess(null);
   }
 
+  function undoLastMove() {
+    setCustomSquareStyles({});
+    setCustomArrows([]);
+    setShowTips(false);
+    setShowSolution(false);
+    setNextPlayerMove(null);
+
+    const gameCopy = { ...board };
+    // Undo last 2 moves (or 1 move if that was the last move of the line that you played and the opponent didn't had one)
+    gameCopy.undo();
+    if (
+      (boardOrientation == "white" && gameCopy.turn() == "b") ||
+      (boardOrientation == "black" && gameCopy.turn() == "w")
+    )
+      gameCopy.undo();
+
+    // Compute next player move
+    let currFen = board.fen();
+    let result = findFen(currFen, boardOrientation);
+    if (result) {
+      let { iChapter, iLine, iFen } = result;
+      let nextPlayerMove = chapterMoves[iChapter].moves[iLine][iFen];
+      if (nextPlayerMove) setNextPlayerMove(nextPlayerMove);
+    }
+
+    setBoard(gameCopy);
+    setShowSuccess(false);
+  }
+
+  function checkPositionOnLichess() {
+    window
+      .open(`https://lichess.org/analysis/standard/${board.fen()}`, "_blank")
+      ?.focus();
+  }
+
   function startAsWhite() {
     setBoardOrientation("white");
 
@@ -619,6 +656,10 @@ export function Preparation(props: PreparationProps) {
     localStorage.setItem("chapterOrientation", "[]");
 
     resetBoard();
+  }
+
+  function getLine() {
+    return "coucou";
   }
 
   function compareToGames() {
@@ -930,9 +971,22 @@ export function Preparation(props: PreparationProps) {
           container
           direction="row"
           alignItems="center"
-          justifyContent="end"
+          justifyContent="space-between"
           sx={{ my: 2 }}
         >
+          <Tooltip enterDelay={500} title="Undo last move">
+            <IconButton
+              color="primary"
+              aria-label="tips"
+              component="span"
+              onClick={() => {
+                undoLastMove();
+              }}
+              disabled={showSuccess == null}
+            >
+              <UndoIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
           <Tooltip enterDelay={500} title="Restart with a new line">
             <IconButton
               color="primary"
@@ -946,6 +1000,21 @@ export function Preparation(props: PreparationProps) {
               <RestartAltIcon fontSize="large" />
             </IconButton>
           </Tooltip>
+
+          <Tooltip enterDelay={500} title="Check position on lichess">
+            <IconButton
+              color="primary"
+              aria-label="tips"
+              component="span"
+              onClick={() => {
+                checkPositionOnLichess();
+              }}
+              disabled={showSuccess == null}
+            >
+              <BedroomBabyIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
+
           {!showTips ? (
             <Tooltip enterDelay={500} title="Show help">
               <IconButton
