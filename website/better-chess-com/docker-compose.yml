@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+
+  nginx:
+    container_name: nginx_chess
+    image: nginx
+    restart: unless-stopped
+    networks:
+      - web
+    volumes:
+      - ./build:/etc/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    labels:
+      - traefik.enable=true
+      - traefik.backend=nginx_chess
+      - traefik.docker.network=web
+      # Port
+      - traefik.http.services.nginx_chess.loadBalancer.server.port=80
+
+      # Rule
+      - traefik.http.routers.nginx_chess.rule=Host(chess.jehanno.net`)
+      # SSL configuration
+      - traefik.http.routers.nginx_chess.entryPoints=websecure
+      - traefik.http.routers.nginx_chess.tls=true
+      - traefik.http.routers.nginx_chess.tls.certResolver=le
+
+networks:
+  web:
+    external: true
