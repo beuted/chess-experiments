@@ -81,16 +81,16 @@ export type ChessComArchive = {
 export function fromLichessToChessComArchive(lichess: LichessArchive): ChessComArchive {
   return {
     white: {
-      username: lichess.players.white.user.name,
+      username: lichess.players.white.user?.name,
       rating: lichess.players.white.rating,
       result: !lichess.winner ? "stalemate" : (lichess.winner == "white" ? "win" : "lose"), // TODO lichess.status could give more details if we need
-      "@id": lichess.players.white.user.id,
+      "@id": lichess.players.white.user?.id,
     },
     black: {
-      username: lichess.players.black.user.name,
+      username: lichess.players.black.user?.name,
       rating: lichess.players.black.rating,
       result: !lichess.winner ? "stalemate" : (lichess.winner == "black" ? "win" : "lose"), // TODO lichess.status could give more details if we need
-      "@id": lichess.players.black.user.id,
+      "@id": lichess.players.black.user?.id,
     },
     url: "https://lichess.org/" + lichess.id,
     pgn: lichess.pgn,
@@ -161,7 +161,7 @@ export type HydratedChessComArchive = ChessComArchive & {
   sfDepth: number;
 }
 
-export type TimeClass = "blitz" | "bullet" | "rapid" | "standard"
+export type TimeClass = "blitz" | "bullet" | "rapid" | "classical"
 
 export type UserInfo = {
   username: string,
@@ -171,5 +171,5 @@ export type UserInfo = {
   blitz: { rating: number, rd: number, percentil: number, nbGames: number },
   bullet: { rating: number, rd: number, percentil: number, nbGames: number },
   rapid: { rating: number, rd: number, percentil: number, nbGames: number },
-  standard: { rating: number, rd: number, percentil: number, nbGames: number },
+  classical: { rating: number, rd: number, percentil: number, nbGames: number },
 }

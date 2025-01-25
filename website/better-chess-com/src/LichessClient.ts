@@ -58,10 +58,10 @@ export class LichessClient {
   public async fetchStatistics(userName: string) {
     const blitz = await this.fetchStatisticsPerGameType(userName, 'blitz');
     const rapid = await this.fetchStatisticsPerGameType(userName, 'rapid');
-    const standard = await this.fetchStatisticsPerGameType(userName, 'standard');
+    const classical = await this.fetchStatisticsPerGameType(userName, 'classical');
     const bullet = await this.fetchStatisticsPerGameType(userName, 'bullet');
 
-    return { blitz, rapid, standard, bullet };
+    return { blitz, rapid, classical, bullet };
   }
 
   public async fetchUserInfo(userName: string): Promise<UserInfo> {

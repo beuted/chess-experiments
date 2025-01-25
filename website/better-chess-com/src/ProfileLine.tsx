@@ -6,7 +6,7 @@ type ProfileLineProps = { userInfo: UserInfo }
 
 export function ProfileLine(props: ProfileLineProps) {
 
-  const timeClasses: TimeClass[] = ["standard", "rapid", "blitz", "bullet"];
+  const timeClasses: TimeClass[] = ["classical", "rapid", "blitz", "bullet"];
 
   return (<Grid container direction="row" alignItems="center" justifyContent="space-evenly" sx={{ py: 1, width: "100%", maxWidth: 600 }}>
     <a href={props.userInfo.url} target="_blank">
